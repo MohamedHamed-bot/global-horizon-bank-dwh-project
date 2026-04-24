@@ -46,9 +46,12 @@ The project is structured according to GitHub standard practices for data engine
  ┃ ┣ 📂 etl/          # Extraction, Transformation, Load scripts (Phase 5)
  ┃ ┗ 📂 olap/         # Data Warehouse Star Schema & Analytics (Phases 6-9)
  ┣ 📂 src/            # Python scripts for data generation & pipelines
- ┣ 📂 diagrams/       # ERDs and architecture diagrams (Draw.io & PNG)
+ ┣ 📂 diagrams/       # ERDs and architecture diagrams (Draw.io, SVG, PNG)
  ┣ 📂 dashboard/      # Streamlit analytical dashboard app
- ┣ 📂 docs/           # Detailed phase documentation
+ ┣ 📂 docs/           # Comprehensive implementation guides and phase documentation
+ ┃ ┣ 📜 phases.md                       # The 9 Phases Detailed
+ ┃ ┣ 📜 sql_implementation_guide.md     # SQL Architecture & Tuning
+ ┃ ┗ 📜 streamlit_dashboard_guide.md    # Dashboard & Visualizations
  ┗ 📜 README.md       # Project overview
 ```
 
