@@ -114,7 +114,7 @@ with col_chart1:
     st.subheader("Transaction Volume by Type")
     tx_type_vol = df.groupby('TransactionType')['Amount'].sum().reset_index()
     fig1 = px.pie(tx_type_vol, values='Amount', names='TransactionType', hole=0.4, color_discrete_sequence=px.colors.sequential.RdBu)
-    st.plotly_chart(fig1, use_container_width=True)
+    st.plotly_chart(fig1, width='stretch')
 
 with col_chart2:
     st.subheader("Monthly Transaction Trend")
@@ -122,7 +122,7 @@ with col_chart2:
     monthly_trend = df.groupby('MonthYear')['Amount'].sum().reset_index()
     fig2 = px.line(monthly_trend, x='MonthYear', y='Amount', markers=True, line_shape='spline')
     fig2.update_traces(line_color='#1f77b4', line_width=3)
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width='stretch')
 
 st.markdown("---")
 col_chart3, col_chart4 = st.columns(2)
@@ -132,18 +132,14 @@ with col_chart3:
     branch_vol = df.groupby('BranchName')['Amount'].sum().reset_index().sort_values(by='Amount', ascending=False).head(10)
     fig3 = px.bar(branch_vol, x='Amount', y='BranchName', orientation='h', color='Amount', color_continuous_scale='Blues')
     fig3.update_layout(yaxis={'categoryorder':'total ascending'})
-    st.plotly_chart(fig3, use_container_width=True)
+    st.plotly_chart(fig3, width='stretch')
 
 with col_chart4:
-    st.subheader("Customer Demographics (Age Group Approximation)")
-    customers_df['Age'] = pd.to_datetime('today').year - pd.to_datetime(customers_df['DateOfBirth']).dt.year
-    bins = [18, 25, 35, 50, 65, 100]
-    labels = ['18-24', '25-34', '35-49', '50-64', '65+']
-    customers_df['AgeGroup'] = pd.cut(customers_df['Age'], bins=bins, labels=labels, right=False)
-    age_dist = customers_df['AgeGroup'].value_counts().reset_index()
+    st.subheader("Customer Demographics (Age Group)")
+    age_dist = df['AgeGroup'].value_counts(dropna=False).reset_index()
     age_dist.columns = ['AgeGroup', 'Count']
     fig4 = px.bar(age_dist, x='AgeGroup', y='Count', color='AgeGroup', color_discrete_sequence=px.colors.qualitative.Pastel)
-    st.plotly_chart(fig4, use_container_width=True)
+    st.plotly_chart(fig4, width='stretch')
 
 st.markdown("---")
 st.caption("Dashboard populated from simulated DWH Data. Phase 9 Analytics Complete.")
