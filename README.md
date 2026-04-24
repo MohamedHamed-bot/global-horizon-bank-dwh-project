@@ -110,11 +110,18 @@ Execute the SQL scripts in the following order using SSMS or Azure Data Studio:
 2. `sql/olap/01_ddl_star_schema.sql`
 3. `sql/etl/01_etl_procedures.sql`
 
-### 3. Run the Analytics Dashboard
+### 3. Run the Analytics Dashboard (Locally)
 ```bash
-pip install streamlit plotly
+pip install -r requirements.txt
 streamlit run dashboard/app.py
 ```
+
+### 4. Run via Docker 🐳
+If you prefer to run the project via containers without installing Python dependencies locally:
+```bash
+docker-compose up --build
+```
+This will containerize the Streamlit dashboard and expose it at `http://localhost:8501`.
 
 ---
 

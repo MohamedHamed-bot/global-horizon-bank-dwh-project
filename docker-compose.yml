@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: global_horizon_dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./dashboard:/app/dashboard
+    environment:
+      - STREAMLIT_ENV=production
+    restart: unless-stopped
+
+  # Optional: Uncomment below to run an instance of SQL Server 2022 locally
+  # sql-server:
+  #   image: mcr.microsoft.com/mssql/server:2022-latest
+  #   container_name: global_horizon_sql
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+  #   ports:
+  #     - "1433:1433"
+  #   volumes:
+  #     - sql_data:/var/opt/mssql
+  #   restart: unless-stopped
+
+# volumes:
+#   sql_data:
