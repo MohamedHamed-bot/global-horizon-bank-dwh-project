@@ -145,7 +145,7 @@ def generate_transactions(accounts_df):
             'AccountID': account_id,
             'TransactionType': tx_type,
             'Amount': amount,
-            'TransactionDate': fake.date_time_between(start_date='-2y', end_date='now').strftime('%Y-%m-%d %H:%M:%S'),
+            'TransactionDate': fake.date_time_between(start_date='-5y', end_date='now').strftime('%Y-%m-%d %H:%M:%S'),
             'Description': fake.sentence(nb_words=4),
             'RelatedAccountID': related_account
         })

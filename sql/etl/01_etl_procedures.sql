@@ -87,8 +87,9 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    DECLARE @StartDate DATE = '2020-01-01';
-    DECLARE @EndDate DATE = '2030-12-31';
+    -- Keep a rolling 5-year date dimension ending today.
+    DECLARE @StartDate DATE = DATEADD(YEAR, -5, CAST(GETDATE() AS DATE));
+    DECLARE @EndDate DATE = CAST(GETDATE() AS DATE);
     
     WHILE @StartDate <= @EndDate
     BEGIN
