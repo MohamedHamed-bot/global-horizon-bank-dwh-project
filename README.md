@@ -22,8 +22,6 @@
 
 This repository contains the complete architecture and implementation of a data system for **Global Horizon Bank**. Following industry best practices, the project transitions from a highly normalized Transactional Database (OLTP) to a high-performance dimensional Data Warehouse (OLAP), capable of answering complex business questions at scale.
 
-This project was built following the **Data Pill - Data Architecture Guide (9 Phases)**.
-
 ---
 
 ## 🏗️ Architecture Pipeline
