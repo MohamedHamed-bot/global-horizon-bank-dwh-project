@@ -66,7 +66,12 @@ def setup_databases():
         cursor.execute("EXEC sp_ETL_Dim_Customer;")
         cursor.execute("EXEC sp_ETL_Dim_Branch;")
         cursor.execute("EXEC sp_ETL_Dim_Account;")
+        # Generate Date Dimension before Fact table
+        print("  Generating Date Dimension...")
+        cursor.execute("EXEC sp_ETL_Dim_Date;")
+        
         # Fact table
+        print("  Loading Fact Transactions...")
         cursor.execute("EXEC sp_ETL_Fact_Transaction;")
         
         print("Database setup and ETL execution completed successfully!")

@@ -82,6 +82,40 @@ BEGIN
 END;
 GO
 
+CREATE OR ALTER PROCEDURE sp_ETL_Dim_Date
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @StartDate DATE = '2020-01-01';
+    DECLARE @EndDate DATE = '2030-12-31';
+    
+    WHILE @StartDate <= @EndDate
+    BEGIN
+        DECLARE @DateKey INT = CAST(CONVERT(VARCHAR(8), @StartDate, 112) AS INT);
+        
+        IF NOT EXISTS (SELECT 1 FROM GlobalHorizon_DWH.dbo.Dim_Date WHERE DateKey = @DateKey)
+        BEGIN
+            INSERT INTO GlobalHorizon_DWH.dbo.Dim_Date 
+            (DateKey, FullDate, Year, Quarter, Month, MonthName, DayOfMonth, DayOfWeek, DayName, IsWeekend)
+            VALUES (
+                @DateKey,
+                @StartDate,
+                YEAR(@StartDate),
+                DATEPART(qq, @StartDate),
+                MONTH(@StartDate),
+                DATENAME(mm, @StartDate),
+                DAY(@StartDate),
+                DATEPART(dw, @StartDate),
+                DATENAME(dw, @StartDate),
+                CASE WHEN DATEPART(dw, @StartDate) IN (1, 7) THEN 1 ELSE 0 END
+            );
+        END
+        SET @StartDate = DATEADD(dd, 1, @StartDate);
+    END
+END;
+GO
+
 
 CREATE OR ALTER PROCEDURE sp_ETL_Fact_Transaction
 AS
