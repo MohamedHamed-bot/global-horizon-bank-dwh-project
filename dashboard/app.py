@@ -34,28 +34,58 @@ st.markdown("""
 st.title("🏦 Global Horizon Bank Analytics")
 st.markdown("### Data Warehouse Executive Dashboard")
 
-@st.cache_data
+import pymssql
+
+@st.cache_data(ttl=600)
 def load_data():
-    data_dir = '../data/raw'
     try:
-        transactions = pd.read_csv(f"{data_dir}/transactions.csv")
-        customers = pd.read_csv(f"{data_dir}/customers.csv")
-        accounts = pd.read_csv(f"{data_dir}/accounts.csv")
-        branches = pd.read_csv(f"{data_dir}/branches.csv")
+        # SQL Server Connection Details
+        SERVER = 'localhost:1434'
+        USER = 'sa'
+        PASSWORD = 'MyStrongPass123!'
+        DATABASE = 'GlobalHorizon_DWH'
+
+        conn = pymssql.connect(server=SERVER, user=USER, password=PASSWORD, database=DATABASE)
         
-        # Merge for OLAP-like view
-        df = transactions.merge(accounts, on='AccountID')
-        df = df.merge(customers, on='CustomerID')
-        df = df.merge(branches, on='BranchID')
+        # Query the Fact Table and join with Dimensions
+        query = """
+        SELECT 
+            ft.TransactionType,
+            ft.Amount,
+            d.FullDate AS TransactionDate,
+            b.BranchName,
+            c.AgeGroup,
+            a.AccountID
+        FROM 
+            Fact_Transaction ft
+        JOIN Dim_Date d ON ft.DateKey = d.DateKey
+        JOIN Dim_Branch b ON ft.BranchKey = b.BranchKey
+        JOIN Dim_Customer c ON ft.CustomerKey = c.CustomerKey
+        JOIN Dim_Account a ON ft.AccountKey = a.AccountKey
+        """
+        
+        df = pd.read_sql(query, conn)
+        
+        # For KPI cards, we need total customers and branches logic
+        customers_query = "SELECT COUNT(DISTINCT CustomerID) as Count FROM Dim_Customer"
+        customers_df = pd.read_sql(customers_query, conn)
+        
+        branches_query = "SELECT BranchName FROM Dim_Branch"
+        branches_df = pd.read_sql(branches_query, conn)
+        
+        conn.close()
+        
         df['TransactionDate'] = pd.to_datetime(df['TransactionDate'])
-        return df, customers, branches
+        return df, customers_df, branches_df
+        
     except Exception as e:
+        st.error(f"Failed to connect to SQL Server. Ensure Docker container is running on port 1434.\n{e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
 df, customers_df, branches_df = load_data()
 
 if df.empty:
-    st.error("Data not found. Please ensure the data generation script has been run.")
+    st.error("No data found in Data Warehouse. Run `python src/setup_sqlserver.py` to populate it.")
     st.stop()
 
 # Key Metrics
@@ -63,7 +93,7 @@ col1, col2, col3, col4 = st.columns(4)
 
 total_tx = len(df)
 total_volume = df['Amount'].sum()
-total_customers = len(customers_df)
+total_customers = customers_df['Count'].iloc[0] if not customers_df.empty else 0
 active_accounts = len(df['AccountID'].unique())
 
 with col1:

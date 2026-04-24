@@ -102,11 +102,12 @@ pip install pandas faker diagrams
 python src/data_generation.py
 ```
 
-### 2. Setup SQL Server Databases
-Execute the SQL scripts in the following order using SSMS or Azure Data Studio:
-1. `sql/oltp/01_ddl_oltp.sql`
-2. `sql/olap/01_ddl_star_schema.sql`
-3. `sql/etl/01_etl_procedures.sql`
+### 2. Setup SQL Server Databases & Run ETL
+We have provided an automated script that connects to your local SQL Server (assuming port `1434` with user `sa` and password `MyStrongPass123!`), initializes the OLTP and Data Warehouse schemas, uploads the generated big data, and runs the ETL stored procedures automatically:
+```bash
+python src/setup_sqlserver.py
+```
+*(Alternatively, you can manually execute the `.sql` scripts in SSMS in the following order: `oltp/01_ddl_oltp.sql`, `olap/01_ddl_star_schema.sql`, `etl/01_etl_procedures.sql`)*
 
 ### 3. Run the Analytics Dashboard (Locally)
 ```bash
