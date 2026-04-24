@@ -57,3 +57,6 @@ data/processed/*.csv
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+.pdf
+.ipynb
