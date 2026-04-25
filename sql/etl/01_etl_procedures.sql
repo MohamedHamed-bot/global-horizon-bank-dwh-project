@@ -87,9 +87,21 @@ AS
 BEGIN
     SET NOCOUNT ON;
     
-    -- Keep a rolling 5-year date dimension ending today.
-    DECLARE @StartDate DATE = DATEADD(YEAR, -5, CAST(GETDATE() AS DATE));
-    DECLARE @EndDate DATE = CAST(GETDATE() AS DATE);
+    -- Build Dim_Date to fully cover transaction history.
+    DECLARE @StartDate DATE;
+    DECLARE @EndDate DATE;
+
+    SELECT
+        @StartDate = MIN(CAST(t.TransactionDate AS DATE)),
+        @EndDate = MAX(CAST(t.TransactionDate AS DATE))
+    FROM GlobalHorizon_OLTP.dbo.Transactions t;
+
+    -- Fallback for empty source tables.
+    IF @StartDate IS NULL OR @EndDate IS NULL
+    BEGIN
+        SET @StartDate = DATEADD(YEAR, -1, CAST(GETDATE() AS DATE));
+        SET @EndDate = CAST(GETDATE() AS DATE);
+    END
     
     WHILE @StartDate <= @EndDate
     BEGIN
