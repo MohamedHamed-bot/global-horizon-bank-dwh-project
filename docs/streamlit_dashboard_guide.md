@@ -6,32 +6,68 @@ This document outlines the design and functionality of the executive reporting d
 The dashboard (`dashboard/app.py`) is designed as the presentation layer of the Data Warehouse. It allows business analysts and executives to consume the dimensional data visually without writing SQL. It is built using Python, `Streamlit` (for the web framework), and `Plotly Express` (for interactive charting).
 
 ## 2. Architecture & Data Ingestion
-Since this project simulates an end-to-end flow locally, the dashboard utilizes the `pandas` library to ingest the generated CSV files from `data/raw/`. 
-In a production environment, the `load_data()` function would be replaced with a `pyodbc` or `SQLAlchemy` connection string targeting the `GlobalHorizon_DWH` SQL Server database.
+The dashboard reads directly from the SQL Server Data Warehouse (`GlobalHorizon_DWH`) using a cached `pymssql` connection.  
+The `load_data()` query joins the fact table with Date, Branch, Customer, and Account dimensions to produce an analysis-ready dataframe for slicing and charting.
 
-### The OLAP Simulation
-Within the `load_data()` function, `pandas.merge()` is used to stitch the dimensional tables (`Customers`, `Branches`, `Accounts`) to the fact table (`Transactions`). This mimics the behavior of querying a Star Schema, resulting in a single flattened dataframe optimized for slicing.
+### Consumption Pattern
+The app follows a semantic-consumption pattern:
+- Query dimensional model once into memory (cached for 10 minutes)
+- Apply interactive filters in Streamlit sidebar
+- Recompute KPIs, trends, and recommendations based on the filtered slice
 
 ## 3. Key Performance Indicators (KPIs)
-The top section of the dashboard highlights four core business metrics:
+The KPI section exposes five executive metrics with period-over-period context:
 - **Total Transactions**: Measures overall system load.
 - **Total Volume ($)**: Measures the absolute financial flow through the bank.
-- **Total Customers**: Measures the size of the user base.
-- **Active Accounts Transacting**: A derived metric showing engagement (accounts that have initiated at least one transaction).
+- **Average Ticket ($)**: Captures transaction quality/value intensity.
+- **Active Accounts Transacting**: Derived engagement metric.
+- **Weekend Share (%)**: Indicates non-weekday behavioral concentration.
 
-## 4. Visualizations (Plotly Express)
+Each KPI includes a delta against a matched previous window to highlight directional change.
 
-### Transaction Volume by Type (Pie Chart)
-- **Insight**: Identifies the primary use case of the bank's accounts. If 'Withdrawals' heavily outweigh 'Deposits', it could signal a liquidity drain.
+## 4. Interactivity Controls
+The sidebar contains two layers:
 
-### Monthly Transaction Trend (Spline Line Chart)
-- **Insight**: Tracks growth over time. The spline smoothing helps visualize the general trajectory, highlighting seasonal peaks (e.g., holiday spending) or valleys.
+### Data Filters
+- Date range
+- Transaction type
+- Branch and branch state
+- Age group
+- Account type and account status
+- Amount range
 
-### Top Branches by Volume (Horizontal Bar Chart)
-- **Insight**: Identifies high-performing geographic locations. This data informs where the bank should open new branches or close underperforming ones.
+### Analysis Controls
+- **Metric Mode**: switch all key aggregations between `Amount` and `Transaction Count`
+- **Trend Time Grain**: `Day`, `Week`, `Month`, or `Quarter`
+- **Top N Branches**: configurable ranking scope for branch performance visuals
 
-### Customer Demographics (Bar Chart)
-- **Insight**: The ETL process creates an `AgeGroup` dimension. This chart visualizes that dimension, helping marketing teams understand the dominant demographic (e.g., Millennials vs. Retirees) for targeted product launches.
+## 5. Dashboard Tabs & Visualizations
 
-## 5. UI/UX Modernization
-The dashboard utilizes custom CSS injected via `st.markdown(unsafe_allow_html=True)` to create "Metric Cards". This moves away from the default Streamlit styling, introducing a clean, white background with drop-shadows to mimic modern SaaS application designs.
+### Overview
+- Transaction mix by type (pie)
+- Configurable temporal trend line
+- Top-N branch ranking
+- Age-group demographic performance
+
+### Behavior Analysis
+- Branch x transaction type heatmap
+- Transaction value distribution (box plot)
+- Account-type performance
+- State-level treemap
+- Time-grain activity timeline
+
+### Business Recommendations
+Rule-based recommendation cards are generated from the current filtered context and prioritized by severity (`High`, `Medium`, `Low`).
+
+### Data Explorer
+Sortable filtered records with CSV download for ad-hoc analysis and offline sharing.
+
+## 6. Business Recommendations Framework
+Recommendations are transparent and deterministic (non-ML), including:
+- **Concentration Risk**: flags when one branch dominates selected activity
+- **Weekend Intensity**: prompts staffing/liquidity adjustment when weekend share is high
+- **Momentum Shift**: compares current and previous periods to detect decline/growth
+- **High-Value Opportunity**: surfaces premium-product opportunity when average ticket is above baseline
+- **Transaction Mix Imbalance**: suggests diversification when one type dominates
+
+This layer turns dashboard monitoring into actionable guidance for operations, growth, and customer strategy.

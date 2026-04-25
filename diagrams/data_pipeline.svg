@@ -33,7 +33,7 @@
 
   <!-- Header -->
   <text x="600" y="50" text-anchor="middle" class="title">Global Horizon Bank Data Architecture</text>
-  <text x="600" y="80" text-anchor="middle" class="subtitle">End-to-End Enterprise Data Pipeline (OLTP to OLAP)</text>
+  <text x="600" y="80" text-anchor="middle" class="subtitle">End-to-End Enterprise Data Pipeline (OLTP to Insights)</text>
 
   <!-- Node 1: OLTP / Data Generation -->
   <g transform="translate(50, 200)">
@@ -79,9 +79,9 @@
     <rect width="220" height="180" rx="10" fill="url(#boxGradient)" filter="url(#shadow)" stroke="#dfe6e9" stroke-width="2"/>
     <foreignObject x="15" y="15" width="190" height="150">
       <div xmlns="http://www.w3.org/1999/xhtml" style="height: 100%; display: flex; flex-direction: column;">
-        <h3 class="box-title">4. Analytics Dashboard</h3>
+        <h3 class="box-title">4. Dashboard + Recommendations</h3>
         <p class="box-desc">Interactive executive reporting with Streamlit &amp; Plotly.</p>
-        <p class="box-desc"><i>Window Functions &amp; KPIs.</i></p>
+        <p class="box-desc"><i>KPIs, behavior analysis, and business recommendations.</i></p>
         <div><span class="tag tag-viz">Phase 9</span></div>
       </div>
     </foreignObject>

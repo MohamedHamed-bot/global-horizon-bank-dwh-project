@@ -26,7 +26,7 @@ This repository contains the complete architecture and implementation of a data 
 
 ## 🏗️ Architecture Pipeline
 
-![Data Pipeline](diagrams/data_pipeline.png)
+![Data Pipeline](diagrams/data_pipeline.svg)
 
 ---
 
@@ -88,9 +88,23 @@ Implemented **Surrogate Keys** and **Slowly Changing Dimensions (SCD Type 2)** f
 Configured **Table Partitioning** by Year on the Fact table and implemented **Clustered Columnstore Indexes** to handle massive data volumes efficiently.
 *See `sql/olap/03_indexing_partitioning.sql`*
 
-### 9️⃣ Analytical Queries & Reporting
-Created an interactive **Streamlit Dashboard** that visualizes Window Functions, aggregations, and demographic trends.
+### 9️⃣ Analytical Queries, Reporting & Recommendations
+Created an interactive **Streamlit Dashboard** that combines KPI monitoring, behavioral analysis, and rule-based business recommendations for faster decision-making.
 *See `sql/olap/04_analytical_queries.sql` and `dashboard/app.py`*
+
+#### Dashboard Highlights
+- Multi-dimensional filtering (date, transaction type, branch, state, age group, account type/status, amount range)
+- Analysis controls for **Metric Mode** (`Amount` vs `Transaction Count`), **Time Grain** (`Day/Week/Month/Quarter`), and **Top N branches**
+- Period-over-period KPI deltas for transactions, volume, average ticket, active accounts, and weekend share
+- Dedicated **Business Recommendations** tab with prioritized, explainable actions
+- Data Explorer with downloadable filtered dataset
+
+#### Business Recommendations (Examples)
+- Flag branch concentration risk when one branch dominates selected activity
+- Recommend weekend staffing/liquidity adjustments when weekend share is elevated
+- Detect momentum changes through previous-period comparison and suggest retention or scaling actions
+- Highlight premium-segment opportunities when selected average ticket outperforms baseline
+- Suggest transaction-mix diversification when one behavior dominates
 
 ---
 
