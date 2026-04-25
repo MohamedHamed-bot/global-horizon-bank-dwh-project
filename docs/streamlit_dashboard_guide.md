@@ -9,6 +9,11 @@ The dashboard (`dashboard/app.py`) is designed as the presentation layer of the 
 The dashboard reads directly from the SQL Server Data Warehouse (`GlobalHorizon_DWH`) using a cached `pymssql` connection.  
 The `load_data()` query joins the fact table with Date, Branch, Customer, and Account dimensions to produce an analysis-ready dataframe for slicing and charting.
 
+### Production Data Policy
+- In production mode (`STREAMLIT_ENV=production` with `REQUIRE_SQL_IN_PRODUCTION=true`), SQL connectivity is mandatory.
+- If SQL is unavailable in production, the app stops with a clear configuration error instead of silently switching to demo data.
+- Demo fallback is preserved only for non-production/development execution.
+
 ### Consumption Pattern
 The app follows a semantic-consumption pattern:
 - Query dimensional model once into memory (cached for 10 minutes)
@@ -71,3 +76,7 @@ Recommendations are transparent and deterministic (non-ML), including:
 - **Transaction Mix Imbalance**: suggests diversification when one type dominates
 
 This layer turns dashboard monitoring into actionable guidance for operations, growth, and customer strategy.
+
+## 7. Data Coverage Notes
+- Generated transaction history now includes data through **2026**.
+- The demo dataset used for development fallback also includes 2026 dates to keep behavior consistent across environments.

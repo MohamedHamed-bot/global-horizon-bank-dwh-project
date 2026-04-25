@@ -16,21 +16,45 @@ NUM_EMPLOYEES = 200
 NUM_ACCOUNTS = 12000
 NUM_LOANS = 3000
 NUM_TRANSACTIONS = 100000
+TRANSACTION_START_DATE = datetime(2022, 1, 1)
+TRANSACTION_END_DATE = datetime(2026, 12, 31, 23, 59, 59)
 
-OUTPUT_DIR = '../data/raw'
+BASE_DIR = os.path.dirname(__file__)
+OUTPUT_DIR = os.path.abspath(os.path.join(BASE_DIR, '../data/raw'))
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Egypt-focused reference data
+EGYPT_FIRST_NAMES = [
+    "Ahmed", "Mohamed", "Mahmoud", "Mostafa", "Omar", "Youssef", "Karim", "Hassan",
+    "Mina", "Sherif", "Tarek", "Amr", "Hany", "Ibrahim", "Ayman", "Khaled",
+    "Fatma", "Mona", "Nour", "Aya", "Salma", "Mariam", "Heba", "Yasmin",
+    "Rania", "Dina", "Nesma", "Doaa", "Hoda", "Sara", "Laila", "Rehab"
+]
+EGYPT_LAST_NAMES = [
+    "Hassan", "Mahmoud", "Abdelrahman", "Fathy", "Sayed", "Naguib", "Shawky", "Samir",
+    "Farag", "Younes", "Mostafa", "Amin", "Adel", "Gamal", "Kamal", "Zaki",
+    "Morsi", "Helmy", "Nassar", "Saleh", "Saad", "Ashraf", "Rashad", "Izzat"
+]
+EGYPT_CITIES = [
+    ("Cairo", "Cairo"), ("Giza", "Giza"), ("Alexandria", "Alexandria"), ("Mansoura", "Dakahlia"),
+    ("Tanta", "Gharbia"), ("Zagazig", "Sharqia"), ("Ismailia", "Ismailia"), ("Port Said", "PortSaid"),
+    ("Suez", "Suez"), ("Fayoum", "Fayoum"), ("Beni Suef", "BeniSuef"), ("Minya", "Minya"),
+    ("Assiut", "Assiut"), ("Sohag", "Sohag"), ("Qena", "Qena"), ("Luxor", "Luxor"),
+    ("Aswan", "Aswan"), ("Damietta", "Damietta"), ("Kafr El Sheikh", "KafrElShk"), ("Hurghada", "RedSea")
+]
 
 def generate_branches():
     print("Generating Branches...")
     branches = []
     for _ in range(NUM_BRANCHES):
+        city, governorate = random.choice(EGYPT_CITIES)
         branches.append({
             'BranchID': fake.unique.random_int(min=100, max=999),
-            'BranchName': f"{fake.city()} Branch",
-            'Address': fake.address().replace('\n', ', '),
-            'City': fake.city(),
-            'State': fake.state_abbr(),
-            'ZipCode': fake.zipcode()
+            'BranchName': f"{city} Branch",
+            'Address': f"{random.randint(1, 120)} Nile Street, {city}",
+            'City': city,
+            'State': governorate,
+            'ZipCode': f"{random.randint(10000, 99999)}"
         })
     df = pd.DataFrame(branches)
     df.to_csv(f"{OUTPUT_DIR}/branches.csv", index=False)
@@ -43,8 +67,8 @@ def generate_employees(branches_df):
     for i in range(1, NUM_EMPLOYEES + 1):
         employees.append({
             'EmployeeID': i,
-            'FirstName': fake.first_name(),
-            'LastName': fake.last_name(),
+            'FirstName': random.choice(EGYPT_FIRST_NAMES),
+            'LastName': random.choice(EGYPT_LAST_NAMES),
             'Role': random.choice(['Teller', 'Manager', 'Loan Officer', 'Customer Service']),
             'BranchID': random.choice(branch_ids),
             'HireDate': fake.date_between(start_date='-10y', end_date='today')
@@ -57,16 +81,20 @@ def generate_customers():
     print("Generating Customers...")
     customers = []
     for i in range(1, NUM_CUSTOMERS + 1):
+        first_name = random.choice(EGYPT_FIRST_NAMES)
+        last_name = random.choice(EGYPT_LAST_NAMES)
+        city, governorate = random.choice(EGYPT_CITIES)
+        email_name = f"{first_name}.{last_name}.{i}".lower().replace(" ", "")
         customers.append({
             'CustomerID': i,
-            'FirstName': fake.first_name(),
-            'LastName': fake.last_name(),
-            'Email': fake.unique.email(),
-            'Phone': fake.phone_number(),
-            'Address': fake.address().replace('\n', ', '),
-            'City': fake.city(),
-            'State': fake.state_abbr(),
-            'ZipCode': fake.zipcode(),
+            'FirstName': first_name,
+            'LastName': last_name,
+            'Email': f"{email_name}@bankmail.eg",
+            'Phone': f"+20{random.randint(1000000000, 1299999999)}",
+            'Address': f"{random.randint(1, 250)} Tahrir Road, {city}",
+            'City': city,
+            'State': governorate,
+            'ZipCode': f"{random.randint(10000, 99999)}",
             'DateOfBirth': fake.date_of_birth(minimum_age=18, maximum_age=90),
             'JoinDate': fake.date_between(start_date='-5y', end_date='today')
         })
@@ -124,6 +152,13 @@ def generate_loans(customers_df, branches_df):
     df.to_csv(f"{OUTPUT_DIR}/loans.csv", index=False)
     return df
 
+def random_transaction_datetime(start_dt: datetime, end_dt: datetime) -> datetime:
+    """Return a uniformly sampled datetime between start_dt and end_dt."""
+    start_ts = int(start_dt.timestamp())
+    end_ts = int(end_dt.timestamp())
+    return datetime.fromtimestamp(random.randint(start_ts, end_ts))
+
+
 def generate_transactions(accounts_df):
     print("Generating Transactions...")
     transactions = []
@@ -145,7 +180,10 @@ def generate_transactions(accounts_df):
             'AccountID': account_id,
             'TransactionType': tx_type,
             'Amount': amount,
-            'TransactionDate': fake.date_time_between(start_date='-5y', end_date='now').strftime('%Y-%m-%d %H:%M:%S'),
+            'TransactionDate': random_transaction_datetime(
+                TRANSACTION_START_DATE,
+                TRANSACTION_END_DATE
+            ).strftime('%Y-%m-%d %H:%M:%S'),
             'Description': fake.sentence(nb_words=4),
             'RelatedAccountID': related_account
         })

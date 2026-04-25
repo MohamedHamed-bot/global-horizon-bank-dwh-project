@@ -14,7 +14,7 @@ Queries analyzing specific years will only scan the relevant partition (Partitio
 
 -- 1. Create a Partition Function for Years
 CREATE PARTITION FUNCTION pf_TransactionYear (INT)
-AS RANGE RIGHT FOR VALUES (20200101, 20210101, 20220101, 20230101, 20240101, 20250101);
+AS RANGE RIGHT FOR VALUES (20200101, 20210101, 20220101, 20230101, 20240101, 20250101, 20260101, 20270101);
 GO
 
 -- 2. Create a Partition Scheme mapping to the PRIMARY filegroup (or separate ones in production)

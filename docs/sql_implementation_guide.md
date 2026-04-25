@@ -31,5 +31,5 @@ The `GlobalHorizon_DWH` uses a **Star Schema** to prioritize read-heavy analytic
 ## 4. Performance Tuning Strategy
 
 To handle the "Big Data" scale (millions of rows):
-- **Table Partitioning**: The `Fact_Transaction` table is logically partitioned by `Year`. A query requesting "2023 Revenue" will utilize **Partition Pruning**, physically scanning only the 2023 data blocks and ignoring the rest.
+- **Table Partitioning**: The `Fact_Transaction` table is logically partitioned by `Year` (including 2026 boundaries). A query requesting a specific year (for example, 2026 revenue) utilizes **Partition Pruning**, physically scanning only the relevant yearly partition.
 - **Columnstore Indexes**: A `CLUSTERED COLUMNSTORE INDEX` is applied to the Fact table. Unlike traditional B-Trees that store data row-by-row, this stores data column-by-column, allowing massive aggregations (`SUM`, `COUNT`) to execute in milliseconds by scanning highly compressed columnar blocks.

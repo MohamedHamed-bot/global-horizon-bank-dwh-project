@@ -7,6 +7,7 @@ SERVER = os.getenv('SQLSERVER_HOST', 'localhost')
 PORT = int(os.getenv('SQLSERVER_PORT', '21433'))
 USER = os.getenv('SQLSERVER_USER', 'sa')
 PASSWORD = os.getenv('SQLSERVER_PASSWORD', 'MyStrongPass123!')
+DATABASE_DWH = os.getenv('SQLSERVER_DB', 'GlobalHorizon_DWH')
 DATA_DIR = '../data/raw'
 
 def execute_sql_file(cursor, filepath):
@@ -32,7 +33,7 @@ def setup_databases():
             "Unable to connect to SQL Server. "
             f"Tried {SERVER}:{PORT} with user '{USER}'.\n"
             "Make sure SQL Server is running and mapped to this port.\n"
-            "Tip: if using Docker, expose host port 1434 -> container 1433.\n"
+            "Tip: if using Docker, expose host port 21433 -> container 1433.\n"
             f"Original error: {e}"
         )
         return
@@ -75,7 +76,7 @@ def setup_databases():
         execute_sql_file(cursor, os.path.join(base_path, '../sql/etl/01_etl_procedures.sql'))
         
         print("Executing ETL Pipelines to populate the Data Warehouse...")
-        cursor.execute("USE GlobalHorizon_DWH;")
+        cursor.execute(f"USE {DATABASE_DWH};")
         cursor.execute("EXEC sp_ETL_Dim_Customer;")
         cursor.execute("EXEC sp_ETL_Dim_Branch;")
         cursor.execute("EXEC sp_ETL_Dim_Account;")

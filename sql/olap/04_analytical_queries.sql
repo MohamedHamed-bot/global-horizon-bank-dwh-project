@@ -61,6 +61,13 @@ ORDER BY
 
 -- 3. Running Totals for Branch Daily Performance
 -- Business Insight: Tracks cumulative daily transaction flow for liquidity management at the branch level.
+WITH LatestMonth AS (
+    SELECT TOP 1
+        d.Year,
+        d.Month
+    FROM Dim_Date d
+    ORDER BY d.Year DESC, d.Month DESC
+)
 SELECT 
     b.BranchName,
     d.FullDate,
@@ -72,8 +79,8 @@ JOIN
     Dim_Date d ON f.DateKey = d.DateKey
 JOIN 
     Dim_Branch b ON f.BranchKey = b.BranchKey
-WHERE 
-    d.Year = 2023 AND d.Month = 1
+JOIN
+    LatestMonth lm ON d.Year = lm.Year AND d.Month = lm.Month
 GROUP BY 
     b.BranchName,
     d.FullDate

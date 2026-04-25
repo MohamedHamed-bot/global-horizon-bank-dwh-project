@@ -15,7 +15,7 @@ st.markdown("### Data Warehouse Executive Dashboard")
 @st.cache_data(ttl=600)
 def build_demo_dataset(rows: int = 12000) -> pd.DataFrame:
     random.seed(42)
-    date_range = pd.date_range(start="2023-01-01", end="2025-12-31", freq="D")
+    date_range = pd.date_range(start="2023-01-01", end="2026-12-31", freq="D")
     transaction_types = ["Deposit", "Withdrawal", "Transfer", "Payment"]
     branches = [
         ("Downtown Branch", "NY"),
@@ -68,6 +68,8 @@ def load_data() -> tuple[pd.DataFrame, str]:
     user = os.getenv("SQLSERVER_USER", "sa")
     password = os.getenv("SQLSERVER_PASSWORD", "MyStrongPass123!")
     database = os.getenv("SQLSERVER_DB", "GlobalHorizon_DWH")
+    runtime_env = os.getenv("STREAMLIT_ENV", "development").strip().lower()
+    require_sql_in_production = os.getenv("REQUIRE_SQL_IN_PRODUCTION", "true").strip().lower() == "true"
 
     # Streamlit Cloud can provide these values via Secrets.
     if hasattr(st, "secrets"):
@@ -76,6 +78,10 @@ def load_data() -> tuple[pd.DataFrame, str]:
         user = st.secrets.get("SQLSERVER_USER", user)
         password = st.secrets.get("SQLSERVER_PASSWORD", password)
         database = st.secrets.get("SQLSERVER_DB", database)
+        runtime_env = st.secrets.get("STREAMLIT_ENV", runtime_env).strip().lower()
+        require_sql_in_production = (
+            str(st.secrets.get("REQUIRE_SQL_IN_PRODUCTION", require_sql_in_production)).strip().lower() == "true"
+        )
 
     try:
         conn = pymssql.connect(
@@ -111,11 +117,17 @@ def load_data() -> tuple[pd.DataFrame, str]:
         dataframe["TransactionDate"] = pd.to_datetime(dataframe["TransactionDate"])
         return dataframe, "sql"
     except Exception as exc:
-        st.warning(
-            "SQL connection is unavailable in this environment. "
-            "The dashboard is running with bundled demo data instead."
-        )
-        st.caption(f"Connection details attempted: `{server}:{port}` | Error: `{exc}`")
+        is_production = runtime_env == "production"
+        if is_production and require_sql_in_production:
+            st.error(
+                "SQL connection is required in production but is currently unavailable. "
+                "Please configure valid SQL Server access in Streamlit secrets."
+            )
+            st.caption("Expected secrets: SQLSERVER_HOST, SQLSERVER_PORT, SQLSERVER_USER, SQLSERVER_PASSWORD, SQLSERVER_DB")
+            st.stop()
+
+        st.warning("SQL connection is unavailable. Running in demo mode (development fallback).")
+        st.caption(f"Connection details attempted: `{server}:{port}`.")
         demo_df = build_demo_dataset()
         demo_df["TransactionDate"] = pd.to_datetime(demo_df["TransactionDate"])
         return demo_df, "demo"
@@ -269,7 +281,7 @@ if df.empty:
 if data_source == "sql":
     st.success("Connected to SQL Server DWH.")
 else:
-    st.info("Using demo mode for Streamlit Cloud compatibility (no reachable SQL Server).")
+    st.info("Using demo mode because SQL is unavailable and fallback is enabled for non-production use.")
 
 # -----------------------------
 # Interactive Filters

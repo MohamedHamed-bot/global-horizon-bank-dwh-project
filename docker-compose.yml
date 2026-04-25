@@ -23,10 +23,12 @@ services:
       - ./dashboard:/app/dashboard
     environment:
       - STREAMLIT_ENV=production
+      - REQUIRE_SQL_IN_PRODUCTION=true
       - SQLSERVER_HOST=sql-server
       - SQLSERVER_PORT=1433
       - SQLSERVER_USER=sa
       - SQLSERVER_PASSWORD=MyStrongPass123!
+      - SQLSERVER_DB=GlobalHorizon_DWH
     depends_on:
       - sql-server
     restart: unless-stopped

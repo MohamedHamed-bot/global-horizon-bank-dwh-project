@@ -69,7 +69,7 @@ Designed a **3NF Relational Database** in SQL Server to handle daily banking ope
 *See `diagrams/oltp_erd.drawio`*
 
 ### 3️⃣ OLTP Workload Simulation
-Generated synthetic "Big Data" using Python (`Faker` & `Pandas`), creating 100,000+ transactions across 10,000+ customers to stress-test the schema.
+Generated synthetic "Big Data" using Python (`Faker` & `Pandas`), creating 100,000+ transactions across 10,000+ customers to stress-test the schema. The latest generator version includes Egypt-market style customer/branch naming and transaction history through the end of 2026.
 *Run `python src/data_generation.py`*
 
 ### 4️⃣ OLTP Limitations Analysis
@@ -132,6 +132,11 @@ python src/setup_sqlserver.py
 pip install -r requirements.txt
 streamlit run dashboard/app.py
 ```
+To require SQL in production-style runs, set:
+```bash
+set STREAMLIT_ENV=production
+set REQUIRE_SQL_IN_PRODUCTION=true
+```
 
 ### 4. Run via Docker 🐳
 If you prefer to run the project via containers without installing Python dependencies locally:
@@ -145,6 +150,9 @@ This will containerize the Streamlit dashboard and expose it at `http://localhos
 - Added period-over-period KPI delta tracking across core executive metrics
 - Introduced a dedicated business recommendation layer with transparent, rule-based insights
 - Updated pipeline architecture visual to reflect the **Dashboard + Recommendations** decision-support output
+- Extended generated transaction timeline to include 2026 and aligned OLAP partition boundaries for 2026+ analytics
+- Localized synthetic customer and branch naming/location patterns to better fit the Egyptian market
+- Enforced production SQL policy for deployed dashboards (no silent demo fallback when production SQL is unavailable)
 
 ---
 
