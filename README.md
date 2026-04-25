@@ -22,6 +22,10 @@
 
 This repository contains the complete architecture and implementation of a data system for **Global Horizon Bank**. Following industry best practices, the project transitions from a highly normalized Transactional Database (OLTP) to a high-performance dimensional Data Warehouse (OLAP), capable of answering complex business questions at scale.
 
+### 🌐 Public Streamlit Dashboard
+
+The deployed public app is available at: **[https://global-horizon-bank.streamlit.app/](https://global-horizon-bank.streamlit.app/)**
+
 ---
 
 ## 🏗️ Architecture Pipeline
@@ -117,7 +121,7 @@ python src/data_generation.py
 ```
 
 ### 2. Setup SQL Server Databases & Run ETL
-We have provided an automated script that connects to your local SQL Server (assuming port `1434` with user `sa` and password `MyStrongPass123!`), initializes the OLTP and Data Warehouse schemas, uploads the generated big data, and runs the ETL stored procedures automatically:
+We have provided an automated script that connects to your local SQL Server (default port `21433` with user `sa` and password `MyStrongPass123!`), initializes the OLTP and Data Warehouse schemas, uploads the generated big data, and runs the ETL stored procedures automatically:
 ```bash
 python src/setup_sqlserver.py
 ```
@@ -135,6 +139,12 @@ If you prefer to run the project via containers without installing Python depend
 docker-compose up --build
 ```
 This will containerize the Streamlit dashboard and expose it at `http://localhost:8501`.
+
+### 5. Recent Project Updates
+- Upgraded dashboard interactivity with metric-mode switching, time-grain control, and configurable Top-N branch analysis
+- Added period-over-period KPI delta tracking across core executive metrics
+- Introduced a dedicated business recommendation layer with transparent, rule-based insights
+- Updated pipeline architecture visual to reflect the **Dashboard + Recommendations** decision-support output
 
 ---
 

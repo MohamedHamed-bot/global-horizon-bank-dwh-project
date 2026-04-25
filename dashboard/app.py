@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import pymssql
 import os
+import random
 
 # Page config
 st.set_page_config(page_title="Global Horizon Bank Dashboard", page_icon="🏦", layout="wide")
@@ -12,14 +13,71 @@ st.markdown("### Data Warehouse Executive Dashboard")
 
 
 @st.cache_data(ttl=600)
-def load_data():
-    try:
-        server = os.getenv("SQLSERVER_HOST", "localhost")
-        port = int(os.getenv("SQLSERVER_PORT", "21433"))
-        user = os.getenv("SQLSERVER_USER", "sa")
-        password = os.getenv("SQLSERVER_PASSWORD", "MyStrongPass123!")
-        database = "GlobalHorizon_DWH"
+def build_demo_dataset(rows: int = 12000) -> pd.DataFrame:
+    random.seed(42)
+    date_range = pd.date_range(start="2023-01-01", end="2025-12-31", freq="D")
+    transaction_types = ["Deposit", "Withdrawal", "Transfer", "Payment"]
+    branches = [
+        ("Downtown Branch", "NY"),
+        ("Riverside Branch", "CA"),
+        ("Central Branch", "TX"),
+        ("North Branch", "IL"),
+        ("Lakeside Branch", "FL"),
+        ("Metro Branch", "WA"),
+        ("West Branch", "AZ"),
+        ("Capital Branch", "VA"),
+    ]
+    age_groups = ["18-24", "25-35", "36-50", "51+"]
+    account_types = ["Savings", "Checking", "Business", "Credit"]
+    account_statuses = ["Active", "Inactive", "Dormant"]
 
+    records = []
+    for _ in range(rows):
+        tx_date = random.choice(date_range)
+        branch_name, branch_state = random.choice(branches)
+        tx_type = random.choices(
+            transaction_types,
+            weights=[0.30, 0.28, 0.24, 0.18],
+            k=1
+        )[0]
+        amount = round(random.uniform(25, 5000), 2)
+        records.append(
+            {
+                "TransactionType": tx_type,
+                "Amount": amount,
+                "TransactionDate": tx_date,
+                "Year": tx_date.year,
+                "Quarter": ((tx_date.month - 1) // 3) + 1,
+                "MonthName": tx_date.strftime("%B"),
+                "IsWeekend": 1 if tx_date.weekday() >= 5 else 0,
+                "BranchName": branch_name,
+                "BranchState": branch_state,
+                "AgeGroup": random.choice(age_groups),
+                "AccountID": random.randint(100000, 150000),
+                "AccountType": random.choice(account_types),
+                "AccountStatus": random.choices(account_statuses, weights=[0.84, 0.10, 0.06], k=1)[0],
+            }
+        )
+    return pd.DataFrame.from_records(records)
+
+
+@st.cache_data(ttl=600)
+def load_data() -> tuple[pd.DataFrame, str]:
+    server = os.getenv("SQLSERVER_HOST", "localhost")
+    port = int(os.getenv("SQLSERVER_PORT", "21433"))
+    user = os.getenv("SQLSERVER_USER", "sa")
+    password = os.getenv("SQLSERVER_PASSWORD", "MyStrongPass123!")
+    database = os.getenv("SQLSERVER_DB", "GlobalHorizon_DWH")
+
+    # Streamlit Cloud can provide these values via Secrets.
+    if hasattr(st, "secrets"):
+        server = st.secrets.get("SQLSERVER_HOST", server)
+        port = int(st.secrets.get("SQLSERVER_PORT", port))
+        user = st.secrets.get("SQLSERVER_USER", user)
+        password = st.secrets.get("SQLSERVER_PASSWORD", password)
+        database = st.secrets.get("SQLSERVER_DB", database)
+
+    try:
         conn = pymssql.connect(
             server=server,
             port=port,
@@ -51,14 +109,16 @@ def load_data():
         dataframe = pd.read_sql(query, conn)
         conn.close()
         dataframe["TransactionDate"] = pd.to_datetime(dataframe["TransactionDate"])
-        return dataframe
+        return dataframe, "sql"
     except Exception as exc:
-        st.error(
-            f"Failed to connect to SQL Server at {server}:{port}. "
-            "Ensure SQL Server is running and credentials are correct.\n"
-            f"{exc}"
+        st.warning(
+            "SQL connection is unavailable in this environment. "
+            "The dashboard is running with bundled demo data instead."
         )
-        return pd.DataFrame()
+        st.caption(f"Connection details attempted: `{server}:{port}` | Error: `{exc}`")
+        demo_df = build_demo_dataset()
+        demo_df["TransactionDate"] = pd.to_datetime(demo_df["TransactionDate"])
+        return demo_df, "demo"
 
 
 def metric_value(dataframe: pd.DataFrame, mode: str) -> float:
@@ -201,10 +261,15 @@ def generate_recommendations(
     return recommendations
 
 
-df = load_data()
+df, data_source = load_data()
 if df.empty:
-    st.error("No data found in Data Warehouse. Run `python src/setup_sqlserver.py` to populate it.")
+    st.error("No data was loaded. Check SQL credentials or demo data generation.")
     st.stop()
+
+if data_source == "sql":
+    st.success("Connected to SQL Server DWH.")
+else:
+    st.info("Using demo mode for Streamlit Cloud compatibility (no reachable SQL Server).")
 
 # -----------------------------
 # Interactive Filters
