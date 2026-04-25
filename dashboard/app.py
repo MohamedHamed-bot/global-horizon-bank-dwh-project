@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import pymssql
+import os
 
 # Page config
 st.set_page_config(page_title="Global Horizon Bank Dashboard", page_icon="🏦", layout="wide")
@@ -13,12 +14,19 @@ st.markdown("### Data Warehouse Executive Dashboard")
 @st.cache_data(ttl=600)
 def load_data():
     try:
-        server = "localhost:1434"
-        user = "sa"
-        password = "MyStrongPass123!"
+        server = os.getenv("SQLSERVER_HOST", "localhost")
+        port = int(os.getenv("SQLSERVER_PORT", "21433"))
+        user = os.getenv("SQLSERVER_USER", "sa")
+        password = os.getenv("SQLSERVER_PASSWORD", "MyStrongPass123!")
         database = "GlobalHorizon_DWH"
 
-        conn = pymssql.connect(server=server, user=user, password=password, database=database)
+        conn = pymssql.connect(
+            server=server,
+            port=port,
+            user=user,
+            password=password,
+            database=database
+        )
         query = """
         SELECT
             ft.TransactionType,
@@ -46,7 +54,8 @@ def load_data():
         return dataframe
     except Exception as exc:
         st.error(
-            "Failed to connect to SQL Server. Ensure Docker container is running on port 1434.\n"
+            f"Failed to connect to SQL Server at {server}:{port}. "
+            "Ensure SQL Server is running and credentials are correct.\n"
             f"{exc}"
         )
         return pd.DataFrame()
@@ -440,9 +449,9 @@ with tab3:
         icon = severity_icons.get(rec["severity"], "ℹ️")
         st.markdown(
             f"""
-            **{icon} {rec["severity"]} - {rec["title"]}**  
-            **Why:** {rec["why"]}  
-            **Recommended action:** {rec["action"]}
+            **{icon} {rec['severity']} - {rec['title']}**  
+            **Why:** {rec['why']}  
+            **Recommended action:** {rec['action']}
             """
         )
 

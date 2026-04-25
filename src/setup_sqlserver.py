@@ -3,9 +3,10 @@ import pandas as pd
 import os
 
 # SQL Server Configuration
-SERVER = 'localhost:1434'
-USER = 'sa'
-PASSWORD = 'MyStrongPass123!'
+SERVER = os.getenv('SQLSERVER_HOST', 'localhost')
+PORT = int(os.getenv('SQLSERVER_PORT', '21433'))
+USER = os.getenv('SQLSERVER_USER', 'sa')
+PASSWORD = os.getenv('SQLSERVER_PASSWORD', 'MyStrongPass123!')
 DATA_DIR = '../data/raw'
 
 def execute_sql_file(cursor, filepath):
@@ -24,7 +25,17 @@ def execute_sql_file(cursor, filepath):
 
 def setup_databases():
     # Connect without specifying database (to create them)
-    conn = pymssql.connect(server=SERVER, user=USER, password=PASSWORD, autocommit=True)
+    try:
+        conn = pymssql.connect(server=SERVER, port=PORT, user=USER, password=PASSWORD, autocommit=True)
+    except Exception as e:
+        print(
+            "Unable to connect to SQL Server. "
+            f"Tried {SERVER}:{PORT} with user '{USER}'.\n"
+            "Make sure SQL Server is running and mapped to this port.\n"
+            "Tip: if using Docker, expose host port 1434 -> container 1433.\n"
+            f"Original error: {e}"
+        )
+        return
     cursor = conn.cursor()
     
     try:
@@ -37,7 +48,9 @@ def setup_databases():
         print("Loading CSV data into OLTP database...")
         from sqlalchemy import create_engine
         # SQLAlchemy engine for fast pandas inserts
-        engine_oltp = create_engine(f'mssql+pymssql://{USER}:{PASSWORD}@{SERVER}/GlobalHorizon_OLTP')
+        engine_oltp = create_engine(
+            f'mssql+pymssql://{USER}:{PASSWORD}@{SERVER}:{PORT}/GlobalHorizon_OLTP'
+        )
         
         # Order matters due to Foreign Keys
         files_to_load = [
