@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import pymssql
 import os
 import random
+from typing import Tuple
+
+try:
+    import pymssql
+    _PYMSSQL_AVAILABLE = True
+except ImportError:
+    _PYMSSQL_AVAILABLE = False
 
 # Page config
 st.set_page_config(page_title="Global Horizon Bank Dashboard", page_icon="🏦", layout="wide")
@@ -62,7 +68,7 @@ def build_demo_dataset(rows: int = 12000) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=600)
-def load_data() -> tuple[pd.DataFrame, str]:
+def load_data() -> Tuple[pd.DataFrame, str]:
     server = os.getenv("SQLSERVER_HOST", "localhost")
     port = int(os.getenv("SQLSERVER_PORT", "21433"))
     user = os.getenv("SQLSERVER_USER", "sa")
@@ -84,6 +90,8 @@ def load_data() -> tuple[pd.DataFrame, str]:
         )
 
     try:
+        if not _PYMSSQL_AVAILABLE:
+            raise ImportError("pymssql is not installed in this environment.")
         conn = pymssql.connect(
             server=server,
             port=port,
@@ -424,7 +432,7 @@ with tab1:
             hole=0.45,
             color_discrete_sequence=px.colors.sequential.RdBu
         )
-        st.plotly_chart(fig1, width="stretch")
+        st.plotly_chart(fig1, use_container_width=True)
 
     with col_chart2:
         st.subheader(f"{time_grain} Transaction Trend")
@@ -432,7 +440,7 @@ with tab1:
         fig2 = px.line(trend, x="PeriodLabel", y="Metric", markers=True, line_shape="spline")
         fig2.update_traces(line_color="#1f77b4", line_width=3)
         fig2.update_layout(xaxis_title=time_grain, yaxis_title=metric_axis_label)
-        st.plotly_chart(fig2, width="stretch")
+        st.plotly_chart(fig2, use_container_width=True)
 
     col_chart3, col_chart4 = st.columns(2)
     with col_chart3:
@@ -448,7 +456,7 @@ with tab1:
             color_continuous_scale="Blues"
         )
         fig3.update_layout(yaxis={"categoryorder": "total ascending"})
-        st.plotly_chart(fig3, width="stretch")
+        st.plotly_chart(fig3, use_container_width=True)
 
     with col_chart4:
         st.subheader(f"Customer Demographics by Age Group ({metric_axis_label})")
@@ -460,7 +468,7 @@ with tab1:
             color="AgeGroup",
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
-        st.plotly_chart(fig4, width="stretch")
+        st.plotly_chart(fig4, use_container_width=True)
 
 with tab2:
     col_behavior1, col_behavior2 = st.columns(2)
@@ -480,7 +488,7 @@ with tab2:
             z=z_field,
             color_continuous_scale="Viridis"
         )
-        st.plotly_chart(fig5, width="stretch")
+        st.plotly_chart(fig5, use_container_width=True)
 
     with col_behavior2:
         st.subheader("Transaction Distribution by Type")
@@ -491,14 +499,14 @@ with tab2:
             color="TransactionType",
             points="outliers"
         )
-        st.plotly_chart(fig6, width="stretch")
+        st.plotly_chart(fig6, use_container_width=True)
 
     col_behavior3, col_behavior4 = st.columns(2)
     with col_behavior3:
         st.subheader(f"{metric_axis_label} by Account Type")
         acct_type_vol = aggregate_by(filtered_df, "AccountType", metric_mode, metric_label="Metric")
         fig8 = px.bar(acct_type_vol, x="AccountType", y="Metric", color="AccountType")
-        st.plotly_chart(fig8, width="stretch")
+        st.plotly_chart(fig8, use_container_width=True)
 
     with col_behavior4:
         st.subheader(f"State-level Performance ({metric_axis_label})")
@@ -510,13 +518,13 @@ with tab2:
             color="Metric",
             color_continuous_scale="Blues"
         )
-        st.plotly_chart(fig9, width="stretch")
+        st.plotly_chart(fig9, use_container_width=True)
 
     st.subheader(f"{time_grain} Activity Timeline")
     timeline = build_temporal_trend(filtered_df, time_grain, metric_mode)
     fig7 = px.area(timeline, x="PeriodLabel", y="Metric")
     fig7.update_layout(xaxis_title=time_grain, yaxis_title=metric_axis_label)
-    st.plotly_chart(fig7, width="stretch")
+    st.plotly_chart(fig7, use_container_width=True)
 
 with tab3:
     st.subheader("Prioritized Business Recommendations")
@@ -550,7 +558,7 @@ with tab4:
     ]
     st.dataframe(
         filtered_df[view_cols].sort_values(by="TransactionDate", ascending=False),
-        width="stretch",
+        use_container_width=True,
         height=420
     )
 
