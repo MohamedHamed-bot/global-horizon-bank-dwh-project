@@ -36,8 +36,6 @@ env.bak/
 venv.bak/
 
 # Project Data
-data/raw/*.csv
-data/processed/*.csv
 *.db
 *.sqlite3
 *.mdf

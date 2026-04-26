@@ -3,131 +3,83 @@
 
   # Global Horizon Bank - Enterprise Data Warehouse
 
-  **An End-to-First Data Architecture Project from OLTP to OLAP**
+  **End-to-End Banking Data Intelligence Architecture**
 
   [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?style=for-the-badge&logo=python)](https://www.python.org)
-  [![SQL Server](https://img.shields.io/badge/SQL_Server-2022-red.svg?style=for-the-badge&logo=microsoft-sql-server)](https://www.microsoft.com/sql-server/)
   [![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B.svg?style=for-the-badge&logo=streamlit)](https://streamlit.io/)
-  [![Pandas](https://img.shields.io/badge/Pandas-Data_Gen-150458.svg?style=for-the-badge&logo=pandas)](https://pandas.pydata.org/)
-  [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+  [![Pandas](https://img.shields.io/badge/Pandas-Analytics-150458.svg?style=for-the-badge&logo=pandas)](https://pandas.pydata.org/)
+  [![Plotly](https://img.shields.io/badge/Plotly-Visuals-3F4F75.svg?style=for-the-badge&logo=plotly)](https://plotly.com/)
 
   <p align="center">
-    <b>Transforming transactional bottlenecks into analytical powerhouses.</b>
+    <b>Transforming transactional data into high-impact business decisions for the Egyptian market.</b>
   </p>
 </div>
 
 ---
 
-## 📖 Project Overview
-
-This repository contains the complete architecture and implementation of a data system for **Global Horizon Bank**. Following industry best practices, the project transitions from a highly normalized Transactional Database (OLTP) to a high‑performance dimensional Data Warehouse (OLAP), capable of answering complex business questions at scale.
-
-### 🌐 Public Streamlit Dashboard
-
-The deployed public app is available at: **[https://global-horizon-bank.streamlit.app/](https://global-horizon-bank.streamlit.app/)**
+## 🏗️ Modern Architecture Pipeline
+![Data Pipeline](diagrams/data_pipeline_v2.png)
 
 ---
 
-## 🏗️ Architecture Pipeline
+## 📊 Analytics & Insights Dashboard
+The **Global Horizon Bank Dashboard** is a state-of-the-art analytical tool designed for executive decision-making.
 
-![Data Pipeline](diagrams/data_pipeline_modern.png)
-
----
-
-## 🗂️ Repository Structure
-
-```bash
-📦 DWH-Project
- ┣ 📂 data
- ┃ ┣ 📂 raw/          # Generated synthetic transactional data (CSV)
- ┃ ┗ 📂 processed/    # Output analytical data (if applicable)
- ┣ 📂 sql
- ┃ ┣ 📂 oltp/         # Transactional database schema & DML (Phases 2-4)
- ┃ ┣ 📂 etl/          # Extraction, Transformation, Load scripts (Phase 5)
- ┃ ┗ 📂 olap/         # Data Warehouse Star Schema & Analytics (Phases 6-9)
- ┣ 📂 src/            # Python scripts for data generation & pipelines
- ┣ 📂 diagrams/       # ERDs and architecture diagrams (Draw.io, SVG, PNG)
- ┃   ┣ data_pipeline_modern.png   # Updated glass‑morphism pipeline diagram
- ┃   ┣ oltp_erd_modern.png        # Modern OLTP ERD
- ┃   ┗ olap_erd_modern.png        # Modern OLAP ERD
- ┣ 📂 dashboard/      # Streamlit analytical dashboard app
- ┣ 📂 docs/           # Comprehensive implementation guides and phase documentation
- ┃   ┣ 📜 phases.md                       # The 9 Phases Detailed
- ┃   ┣ 📜 sql_implementation_guide.md     # SQL Architecture & Tuning
- ┃   ┗ 📜 streamlit_dashboard_guide.md    # Dashboard & Visualizations
- ┗ 📜 README.md       # Project overview
-```
+### Key Features:
+- **Executive KPIs**: Real-time monitoring of Transactions, Volume, Average Ticket, Active Accounts, and Weekend Share with period-over-period deltas.
+- **Localized Context**: Specifically tailored for the Egyptian banking sector, including **Governorate-level analysis** (Cairo, Giza, Alexandria, Dakahlia, etc.).
+- **Loan Portfolio Analytics**: Dedicated module for tracking loan types, status distribution, and portfolio age.
+- **Intelligent Recommendations**: A rule-based engine that identifies risks (branch concentration, momentum shifts) and premium growth opportunities.
+- **Dynamic Controls**: Switch between **Volume ($)** and **Transaction Count**, adjust time grains (**Year/Quarter/Month**), and filter by demographics.
 
 ---
 
-## 🚀 The 9 Phases of Implementation
+## 🗂️ Data Models
+### OLTP System (Transactional)
+Designed for high-integrity daily operations.
+![OLTP ERD](diagrams/oltp_erd_v2.png)
 
-*(unchanged – see README for detailed phases)*
-
----
-
-## 📊 New Features & Updates
-
-- **CSV‑first data loading** – The dashboard now reads from the `data/raw/` CSV files. If those are missing or the SQL driver is unavailable, it falls back to the optional SQL Server source.
-- **Merged dataframe** – Transactions are joined with Accounts, Customers and Branches to provide a single analytical view.
-- **Derived columns** – `AgeGroup` (based on `DateOfBirth`) and `IsWeekend` (based on `TransactionDate`).
-- **Egyptian governorates** – All state‑level visualisations now use Egyptian governorates instead of US states.
-- **Loans Tab** – Dedicated tab visualising loan portfolio amounts, status distribution and average loan age.
-- **Modern diagrams** – Glass‑morphism style pipeline and ERDs (see `diagrams/` folder).
+### OLAP Data Warehouse (Analytical)
+Optimized Star Schema for high-performance complex queries.
+![OLAP ERD](diagrams/olap_erd_v2.png)
 
 ---
 
 ## 🛠️ How to Run Locally
 
-### 1. Install dependencies
-```bash
-pip install -r requirements.txt
-```
+1. **Prerequisites**: Ensure you have Python 3.11+ installed.
+2. **Installation**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. **Data Preparation**: (Optional) Re-generate the synthetic Egypt-market data.
+   ```bash
+   python src/data_generation.py
+   ```
+4. **Execution**:
+   ```bash
+   streamlit run dashboard/app.py
+   ```
+5. **Access**: Open your browser at `http://localhost:8501`.
 
-### 2. Generate synthetic data (if you removed the `data/raw/` CSVs)
-```bash
-python src/data_generation.py
-```
+---
 
-### 3. (Optional) Set up SQL Server & ETL
-If you want to use the SQL fallback, run the helper script:
-```bash
-python src/setup_sqlserver.py
-```
-Make sure SQL Server is reachable and the environment variables `SQLSERVER_HOST`, `SQLSERVER_PORT`, `SQLSERVER_USER`, `SQLSERVER_PASSWORD`, `SQLSERVER_DB` are set.
+## ☁️ Deployment Guide
 
-### 4. Launch the Streamlit dashboard
-```bash
-streamlit run dashboard/app.py
-```
-Access the app at `http://localhost:8501`.
+### Streamlit Cloud (Recommended)
+1. Push this repository to your **GitHub**.
+2. Visit [Streamlit Cloud](https://share.streamlit.io/) and connect your account.
+3. Select this repository and the `dashboard/app.py` as the main file.
+4. **Secrets Management**: If using the SQL Server fallback, add your credentials (HOST, USER, PASS, etc.) to the Streamlit Cloud "Secrets" panel.
+5. **Auto-Loading**: The app is configured to automatically detect and load the CSV files bundled in the repository, making it plug-and-play.
 
-### 5. Run via Docker (containerised option)
+### Docker Deployment
 ```bash
 docker-compose up --build
 ```
-The dashboard will be available at `http://localhost:8501`.
-
----
-
-## ☁️ Deploying to Streamlit Cloud
-
-1. **Commit all files** (including the `data/raw/` CSVs and the updated `diagrams/` assets) to a GitHub repository.
-2. In Streamlit Cloud, connect the repo and enable automatic deployment.
-3. Ensure the `requirements.txt` contains only packages that are installable on the cloud (the current list is safe).
-4. The app will automatically load the CSV data bundled with the repo. No additional configuration is required.
-5. If you want the SQL fallback on Cloud (e.g., using an Azure SQL instance), set the required environment variables in the Streamlit Cloud *Secrets* panel.
-
----
-
-## 📚 Documentation
-
-- **Data Pipeline Guide** – `docs/streamlit_dashboard_guide.md`
-- **SQL Implementation Guide** – `docs/sql_implementation_guide.md`
-- **Phase Details** – `docs/phases.md`
 
 ---
 
 <div align="center">
-  <i>Developed as part of the Data Engineering Diploma</i>
+  <i>Developed by Antigravity AI for the Data Engineering Diploma</i>
 </div>

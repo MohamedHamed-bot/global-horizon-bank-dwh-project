@@ -62,6 +62,111 @@ def is_weekend(date_series: pd.Series) -> pd.Series:
     """Return True for Saturday / Sunday values."""
     return date_series.dt.weekday.isin([5, 6])
 
+def delta_label(current_value: float, previous_value: float, mode: str) -> str:
+    if previous_value == 0:
+        return "n/a vs previous"
+    delta_pct = ((current_value - previous_value) / previous_value) * 100
+    unit = "amount" if mode == "Sum" else "count"
+    return f"{delta_pct:+.1f}% vs previous {unit}"
+
+def generate_recommendations(
+    current_df: pd.DataFrame,
+    previous_df: pd.DataFrame,
+    full_df: pd.DataFrame,
+    mode: str,
+) -> list[dict]:
+    recommendations = []
+    
+    current_sum = current_df["Amount"].sum() if not current_df.empty else 0.0
+    previous_sum = previous_df["Amount"].sum() if not previous_df.empty else 0.0
+    current_count = len(current_df)
+    previous_count = len(previous_df)
+    
+    current_metric = current_sum if mode == "Sum" else float(current_count)
+    previous_metric = previous_sum if mode == "Sum" else float(previous_count)
+
+    global_avg_ticket = full_df["Amount"].mean() if not full_df.empty else 0.0
+    current_avg_ticket = current_df["Amount"].mean() if not current_df.empty else 0.0
+
+    if current_df.empty:
+        return [{
+            "severity": "Low",
+            "title": "Insufficient data under current filters",
+            "why": "The current selection has no transactions to evaluate.",
+            "action": "Expand date, branch, or transaction filters to generate recommendations."
+        }]
+
+    weekend_share = float(current_df["IsWeekend"].mean() * 100)
+    if weekend_share >= 40:
+        recommendations.append({
+            "severity": "High",
+            "title": "Rebalance weekend staffing and liquidity windows",
+            "why": f"Weekend activity is {weekend_share:.1f}% of selected transactions.",
+            "action": "Increase weekend support coverage and adjust branch cash planning."
+        })
+
+    branch_metric = aggregate_by(current_df, "BranchName", mode, metric_label="Metric")
+    if not branch_metric.empty and current_metric > 0:
+        top_branch = branch_metric.sort_values("Metric", ascending=False).iloc[0]
+        concentration = float((top_branch["Metric"] / current_metric) * 100)
+        if concentration >= 35:
+            recommendations.append({
+                "severity": "High",
+                "title": "Reduce branch concentration risk",
+                "why": f"{top_branch['BranchName']} contributes {concentration:.1f}% of selected {mode.lower()} volume.",
+                "action": "Transfer successful branch practices to nearby branches and monitor dependency."
+            })
+
+    if previous_metric > 0:
+        trend_change = ((current_metric - previous_metric) / previous_metric) * 100
+        if trend_change <= -10:
+            recommendations.append({
+                "severity": "High",
+                "title": "Address declining momentum",
+                "why": f"Selected period {mode.lower()} is down {abs(trend_change):.1f}% versus prior period.",
+                "action": "Deploy retention campaigns for impacted customer/account segments."
+            })
+        elif trend_change >= 10:
+            recommendations.append({
+                "severity": "Medium",
+                "title": "Scale capacity for growth areas",
+                "why": f"Selected period {mode.lower()} is up {trend_change:.1f}% versus prior period.",
+                "action": "Allocate service capacity to high-growth governorates and transaction types."
+            })
+
+    if current_avg_ticket > 0 and global_avg_ticket > 0 and current_avg_ticket >= (global_avg_ticket * 1.2):
+        recommendations.append({
+            "severity": "Medium",
+            "title": "Launch premium offers for high-value segments",
+            "why": f"Average ticket (${current_avg_ticket:,.2f}) exceeds global baseline (${global_avg_ticket:,.2f}).",
+            "action": "Promote premium bundles and relationship-driven products for this segment."
+        })
+
+    tx_mix = aggregate_by(current_df, "TransactionType", "Count", metric_label="TxCount")
+    if not tx_mix.empty and tx_mix["TxCount"].sum() > 0:
+        tx_mix = tx_mix.sort_values("TxCount", ascending=False)
+        top_tx = tx_mix.iloc[0]
+        tx_share = float((top_tx["TxCount"] / tx_mix["TxCount"].sum()) * 100)
+        if tx_share >= 50:
+            recommendations.append({
+                "severity": "Low",
+                "title": "Diversify transaction mix",
+                "why": f"{top_tx['TransactionType']} represents {tx_share:.1f}% of transaction count.",
+                "action": "Bundle adjacent services to diversify customer transaction behavior."
+            })
+
+    if not recommendations:
+        recommendations.append({
+            "severity": "Low",
+            "title": "Performance appears balanced",
+            "why": "No major concentration or trend anomalies were detected for this slice.",
+            "action": "Continue monitoring with branch and account-level drill-downs."
+        })
+
+    severity_order = {"High": 0, "Medium": 1, "Low": 2}
+    recommendations.sort(key=lambda item: severity_order.get(item["severity"], 3))
+    return recommendations
+
 # ---------------------------------------------------------------------------
 # Data loading – CSV with SQL fallback
 # ---------------------------------------------------------------------------
@@ -294,6 +399,23 @@ mask = (
 )
 filtered_df = merged_df[mask]
 
+# Calculate previous period for deltas
+period_days = max((end_date - start_date).days + 1, 1)
+previous_end_date = pd.Timestamp(start_date) - pd.Timedelta(days=1)
+previous_start_date = previous_end_date - pd.Timedelta(days=period_days - 1)
+
+previous_mask = (
+    (merged_df["TransactionDate"] >= previous_start_date)
+    & (merged_df["TransactionDate"] <= previous_end_date)
+    & merged_df["TransactionType"].isin(selected_types)
+    & merged_df["BranchState"].isin(selected_states)
+    & merged_df["AgeGroup"].isin(selected_age_groups)
+    & merged_df["AccountType"].isin(selected_account_types)
+    & (merged_df["Amount"] >= selected_amount[0])
+    & (merged_df["Amount"] <= selected_amount[1])
+)
+previous_df = merged_df[previous_mask]
+
 # ---------------------------------------------------------------------------
 # Helper aggregation utilities (used in many charts)
 # ---------------------------------------------------------------------------
@@ -319,6 +441,36 @@ tab_overview, tab_loans, tab_recommendations, tab_data = st.tabs([
 # Overview tab – existing visualisations (unchanged except width params)
 # ---------------------------------------------------------------------------
 with tab_overview:
+    # KPI Metrics
+    st.subheader("Key Performance Indicators")
+    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    
+    total_tx = float(len(filtered_df))
+    total_volume = float(filtered_df["Amount"].sum())
+    avg_ticket = float(filtered_df["Amount"].mean()) if not filtered_df.empty else 0.0
+    active_accounts = float(filtered_df["AccountID"].nunique())
+    weekend_share = float(filtered_df["IsWeekend"].mean() * 100) if not filtered_df.empty else 0.0
+
+    prev_total_tx = float(len(previous_df))
+    prev_total_volume = float(previous_df["Amount"].sum())
+    prev_avg_ticket = float(previous_df["Amount"].mean()) if not previous_df.empty else 0.0
+    prev_active_accounts = float(previous_df["AccountID"].nunique())
+    prev_weekend_share = float(previous_df["IsWeekend"].mean() * 100) if not previous_df.empty else 0.0
+
+    with kpi1:
+        st.metric("Transactions", f"{total_tx:,.0f}", delta_label(total_tx, prev_total_tx, "Count"))
+    with kpi2:
+        st.metric("Volume ($)", f"${total_volume:,.0f}", delta_label(total_volume, prev_total_volume, "Sum"))
+    with kpi3:
+        st.metric("Avg Ticket ($)", f"${avg_ticket:,.2f}", delta_label(avg_ticket, prev_avg_ticket, "Sum"))
+    with kpi4:
+        st.metric("Active Accounts", f"{active_accounts:,.0f}", delta_label(active_accounts, prev_active_accounts, "Count"))
+    with kpi5:
+        weekend_delta = f"{(weekend_share - prev_weekend_share):+.1f} pp vs previous"
+        st.metric("Weekend Share", f"{weekend_share:,.1f}%", weekend_delta)
+
+    st.markdown("---")
+    
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("Top Branches by Volume")
@@ -413,8 +565,17 @@ with tab_loans:
 # ---------------------------------------------------------------------------
 with tab_recommendations:
     st.subheader("Prioritized Business Recommendations")
-    # Placeholder – in a production app you would call a recommendation engine
-    st.info("Recommendation engine not implemented yet.")
+    recommendations = generate_recommendations(filtered_df, previous_df, merged_df, metric_mode)
+    severity_icons = {"High": "🚨", "Medium": "⚠️", "Low": "✅"}
+    for rec in recommendations:
+        icon = severity_icons.get(rec["severity"], "ℹ️")
+        with st.expander(f"{icon} {rec['severity']} - {rec['title']}", expanded=(rec["severity"] == "High")):
+            st.markdown(
+                f"""
+                **Why:** {rec['why']}  
+                **Recommended action:** {rec['action']}
+                """
+            )
 
 # ---------------------------------------------------------------------------
 # Data tab – raw filtered data & download
