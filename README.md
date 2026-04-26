@@ -18,7 +18,7 @@
 ---
 
 ## 🏗️ Modern Architecture Pipeline
-![Data Pipeline](diagrams/data_pipeline_v2.png)
+![Data Pipeline](diagrams/data_pipeline.png)
 
 ---
 
