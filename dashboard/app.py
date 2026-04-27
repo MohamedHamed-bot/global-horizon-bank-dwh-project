@@ -15,7 +15,7 @@ will be skipped when the driver is unavailable).
 import os
 import random
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, List, Dict
 
 import pandas as pd
 import plotly.express as px
@@ -35,7 +35,29 @@ st.set_page_config(
     page_title="Global Horizon Bank Dashboard",
     page_icon="🏦",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
+
+# Custom CSS for premium feel
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .stMetric {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    div[data-testid="stExpander"] {
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+        background-color: white !important;
+        margin-bottom: 10px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("🏦 Global Horizon Bank Analytics")
 st.markdown("### Data Warehouse Executive Dashboard")
@@ -64,7 +86,7 @@ def is_weekend(date_series: pd.Series) -> pd.Series:
 
 def delta_label(current_value: float, previous_value: float, mode: str) -> str:
     if previous_value == 0:
-        return "n/a vs previous"
+        return "n/a"
     delta_pct = ((current_value - previous_value) / previous_value) * 100
     unit = "amount" if mode == "Sum" else "count"
     return f"{delta_pct:+.1f}% vs previous {unit}"
@@ -74,7 +96,7 @@ def generate_recommendations(
     previous_df: pd.DataFrame,
     full_df: pd.DataFrame,
     mode: str,
-) -> list[dict]:
+) -> List[Dict]:
     recommendations = []
     
     current_sum = current_df["Amount"].sum() if not current_df.empty else 0.0
@@ -168,17 +190,19 @@ def generate_recommendations(
     return recommendations
 
 # ---------------------------------------------------------------------------
-# Data loading – CSV with SQL fallback
+# Data loading – CSV with SQL fallback (CACHED)
 # ---------------------------------------------------------------------------
 
-def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
+@st.cache_data(ttl=3600)
+def load_data() -> Tuple[pd.DataFrame, pd.DataFrame, str]:
     """Load the core fact table and a backup demo dataframe.
 
     Returns:
         merged_df: The fully joined dataframe used throughout the app.
-        demo_df:   A small synthetic dataframe used when CSV/SQL loading fails.
+        loans_merged: A merged loan dataframe.
+        source: A string indicating the data source ("CSV", "SQL", or "Demo").
     """
-    # Paths to raw CSV files (they live under the repository root)
+    # Paths to raw CSV files
     base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "raw"))
     tx_path = os.path.join(base_path, "transactions.csv")
     acc_path = os.path.join(base_path, "accounts.csv")
@@ -186,17 +210,21 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     branch_path = os.path.join(base_path, "branches.csv")
     loans_path = os.path.join(base_path, "loans.csv")
 
+    source = "CSV"
+    
     # -------------------------------------------------------------------
     # Attempt CSV loading first
     # -------------------------------------------------------------------
     try:
+        if not all(os.path.exists(p) for p in [tx_path, acc_path, cust_path, branch_path, loans_path]):
+            raise FileNotFoundError("One or more CSV files missing.")
+        
         tx = pd.read_csv(tx_path)
         acc = pd.read_csv(acc_path)
         cust = pd.read_csv(cust_path)
         br = pd.read_csv(branch_path)
         loans = pd.read_csv(loans_path)
-    except Exception as e:
-        st.warning(f"CSV loading failed ({e}); attempting SQL fallback.")
+    except Exception:
         tx = acc = cust = br = loans = None
 
     # -------------------------------------------------------------------
@@ -204,16 +232,17 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     # -------------------------------------------------------------------
     if any(df is None for df in [tx, acc, cust, br]):
         if not _PYMSSQL_AVAILABLE:
-            st.error("Neither CSV files nor SQL driver are available. Showing demo data.")
-            return demo_dataset()
+            df, l_df = demo_dataset()
+            return df, l_df, "Demo"
         
         try:
-            # Build connection string from env vars
+            source = "SQL"
+            # Build connection string from env vars (matching docker-compose defaults)
             server = os.getenv("SQLSERVER_HOST", "localhost")
             port = int(os.getenv("SQLSERVER_PORT", "21433"))
             user = os.getenv("SQLSERVER_USER", "sa")
-            password = os.getenv("SQLSERVER_PASSWORD", "YourStrong!Passw0rd")
-            database = os.getenv("SQLSERVER_DB", "GlobalHorizonBankDW")
+            password = os.getenv("SQLSERVER_PASSWORD", "MyStrongPass123!")
+            database = os.getenv("SQLSERVER_DB", "GlobalHorizon_DWH")
             
             conn = pymssql.connect(
                 server=server,
@@ -221,7 +250,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
                 user=user,
                 password=password,
                 database=database,
-                timeout=5  # Short timeout for cloud fallback
+                timeout=5
             )
             tx = pd.read_sql("SELECT * FROM dbo.Transactions", conn)
             acc = pd.read_sql("SELECT * FROM dbo.Accounts", conn)
@@ -229,12 +258,12 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
             br = pd.read_sql("SELECT * FROM dbo.Branches", conn)
             loans = pd.read_sql("SELECT * FROM dbo.Loans", conn)
             conn.close()
-        except Exception as sql_err:
-            st.error(f"SQL Fallback failed ({sql_err}). Loading demo data.")
-            return demo_dataset()
+        except Exception:
+            df, l_df = demo_dataset()
+            return df, l_df, "Demo"
 
     # -------------------------------------------------------------------
-    # Merge all tables – keep only the columns we need later
+    # Merge all tables
     # -------------------------------------------------------------------
     # Parse dates
     tx["TransactionDate"] = _parse_date(tx["TransactionDate"])
@@ -242,7 +271,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     cust["DateOfBirth"] = _parse_date(cust["DateOfBirth"])
     loans["StartDate"] = _parse_date(loans["StartDate"])
 
-    # Rename accounts Status -> AccountStatus before merge to avoid ambiguity
+    # Rename accounts Status -> AccountStatus before merge
     acc = acc.rename(columns={"Status": "AccountStatus"})
 
     # Join transaction tables
@@ -256,27 +285,23 @@ def load_data() -> Tuple[pd.DataFrame, pd.DataFrame]:
     merged["Year"] = merged["TransactionDate"].dt.year
     merged["Quarter"] = merged["TransactionDate"].dt.quarter
     merged["MonthName"] = merged["TransactionDate"].dt.month_name()
-    merged["BranchState"] = merged["State_br"]  # Egyptian governorate from branches table
+    merged["BranchState"] = merged["State_br"] if "State_br" in merged.columns else merged["State"]
     merged["AgeGroup"] = derive_agegroup(merged["DateOfBirth"])
     merged["IsWeekend"] = is_weekend(merged["TransactionDate"])
 
-    # Pre-merge loans with branch info (so Loans tab doesn't need raw tables)
+    # Pre-merge loans
     loans_merged = loans.merge(br, on="BranchID", how="left", suffixes=("", "_br"))
     loans_merged["LoanAgeDays"] = (pd.Timestamp("today") - loans_merged["StartDate"]).dt.days
 
-    return merged, loans_merged
+    return merged, loans_merged, source
 
 # ---------------------------------------------------------------------------
-# Demo dataset – used only when all loading steps fail
+# Demo dataset – fallback
 # ---------------------------------------------------------------------------
 
 def demo_dataset() -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Create synthetic dataframes that mimic the real schema.
-    This keeps the dashboard functional on environments where no data is
-    available (e.g., Streamlit Cloud without the CSVs).
-    """
-    rows = 5000
-    date_range = pd.date_range(start="2022-01-01", end="2026-12-31", freq="D")
+    rows = 2000
+    date_range = pd.date_range(start="2022-01-01", end="2024-12-31", freq="D")
     transaction_types = ["Deposit", "Withdrawal", "Transfer", "Payment"]
     branches = [
         ("Mansoura Branch", "Dakahlia"),
@@ -297,33 +322,24 @@ def demo_dataset() -> Tuple[pd.DataFrame, pd.DataFrame]:
         branch_name, branch_state = random.choice(branches)
         tx_type = random.choices(transaction_types, weights=[0.30, 0.28, 0.24, 0.18], k=1)[0]
         amount = round(random.expovariate(1 / 1500), 2)
-        cust_id = random.randint(1, 10000)
-        acct_id = random.randint(1, 12000)
-        acct_type = random.choice(account_types)
-        acct_status = random.choice(account_statuses)
-        age_group = random.choice(age_groups)
-        records.append(
-            {
-                "TransactionDate": tx_date,
-                "TransactionType": tx_type,
-                "Amount": amount,
-                "BranchName": branch_name,
-                "BranchState": branch_state,
-                "CustomerID": cust_id,
-                "AccountID": acct_id,
-                "AccountType": acct_type,
-                "AccountStatus": acct_status,
-                "AgeGroup": age_group,
-                "IsWeekend": tx_date.weekday() in (5, 6),
-            }
-        )
+        records.append({
+            "TransactionDate": tx_date,
+            "TransactionType": tx_type,
+            "Amount": amount,
+            "BranchName": branch_name,
+            "BranchState": branch_state,
+            "CustomerID": random.randint(1, 1000),
+            "AccountID": random.randint(1, 1200),
+            "AccountType": random.choice(account_types),
+            "AccountStatus": random.choice(account_statuses),
+            "AgeGroup": random.choice(age_groups),
+            "IsWeekend": tx_date.weekday() in (5, 6),
+        })
     df = pd.DataFrame.from_records(records)
     df["Year"] = df["TransactionDate"].dt.year
     df["Quarter"] = df["TransactionDate"].dt.quarter
     df["MonthName"] = df["TransactionDate"].dt.month_name()
-    df["PeriodLabel"] = df["Year"].astype(str) # Default to Year label
     
-    # Generate demo loans
     loan_records = []
     for _ in range(rows // 10):
         start_date = random.choice(date_range)
@@ -332,86 +348,85 @@ def demo_dataset() -> Tuple[pd.DataFrame, pd.DataFrame]:
             "PrincipalAmount": round(random.uniform(5000, 500000), 2),
             "Status": random.choice(loan_statuses),
             "StartDate": start_date,
-            "LoanAgeDays": (pd.Timestamp("today") - start_date).days
+            "LoanAgeDays": (pd.Timestamp("today") - start_date).days,
+            "BranchID": random.randint(1, 5)
         })
     loans_df = pd.DataFrame.from_records(loan_records)
     
     return df, loans_df
 
 # ---------------------------------------------------------------------------
-# Load data (merged transactions + loans)
+# Execution
 # ---------------------------------------------------------------------------
-merged_df, loans_df = load_data()
-# The logic inside load_data already ensures these aren't empty via fallback
-# but we can show a status message if we want.
-if "PeriodLabel" not in merged_df.columns:
-    # This might happen if fallback was used and we need to ensure basic columns exist
-    merged_df["PeriodLabel"] = merged_df["Year"].astype(str)
 
-# ---------------------------------------------------------------------------
-# Sidebar – filters
-# ---------------------------------------------------------------------------
-st.sidebar.header("Filters")
+# Load Data
+with st.spinner("Loading Data Warehouse..."):
+    merged_df, loans_df, data_source = load_data()
 
-# Date filter – use min/max from the dataframe
-min_date = merged_df["TransactionDate"].min().date()
-max_date = merged_df["TransactionDate"].max().date()
-start_date, end_date = st.sidebar.date_input(
-    "Transaction date range",
-    value=(min_date, max_date),
-    min_value=min_date,
-    max_value=max_date,
-)
+# Sidebar
+st.sidebar.image("https://img.icons8.com/fluency/96/bank.png", width=80)
+st.sidebar.header("Control Panel")
 
-# Transaction type filter
-selected_types = st.sidebar.multiselect(
-    "Transaction Types",
-    options=merged_df["TransactionType"].unique().tolist(),
-    default=merged_df["TransactionType"].unique().tolist(),
-)
+# Data Source Info
+source_color = {"CSV": "green", "SQL": "blue", "Demo": "orange"}.get(data_source, "gray")
+st.sidebar.markdown(f"**Data Source:** :{source_color}[{data_source}]")
 
-# Branch filter (by governorate)
-selected_states = st.sidebar.multiselect(
-    "Governorates",
-    options=merged_df["BranchState"].unique().tolist(),
-    default=merged_df["BranchState"].unique().tolist(),
-)
+# Filters
+with st.sidebar.expander("📅 Date Range", expanded=True):
+    min_date = merged_df["TransactionDate"].min().date()
+    max_date = merged_df["TransactionDate"].max().date()
+    date_range = st.date_input(
+        "Select Range",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date,
+    )
+    # Handle single date selection vs range selection
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+    elif isinstance(date_range, tuple) and len(date_range) == 1:
+        start_date = end_date = date_range[0]
+    else:
+        start_date = end_date = date_range
 
-# Age group filter
-selected_age_groups = st.sidebar.multiselect(
-    "Age Groups",
-    options=merged_df["AgeGroup"].dropna().unique().tolist(),
-    default=merged_df["AgeGroup"].dropna().unique().tolist(),
-)
+with st.sidebar.expander("🔍 Filters", expanded=False):
+    selected_types = st.multiselect(
+        "Transaction Types",
+        options=sorted(merged_df["TransactionType"].unique().tolist()),
+        default=merged_df["TransactionType"].unique().tolist(),
+    )
+    selected_states = st.multiselect(
+        "Governorates",
+        options=sorted(merged_df["BranchState"].unique().tolist()),
+        default=merged_df["BranchState"].unique().tolist(),
+    )
+    selected_age_groups = st.multiselect(
+        "Age Groups",
+        options=sorted(merged_df["AgeGroup"].dropna().unique().tolist()),
+        default=merged_df["AgeGroup"].dropna().unique().tolist(),
+    )
+    selected_account_types = st.multiselect(
+        "Account Types",
+        options=sorted(merged_df["AccountType"].unique().tolist()),
+        default=merged_df["AccountType"].unique().tolist(),
+    )
 
-# Account type filter
-selected_account_types = st.sidebar.multiselect(
-    "Account Types",
-    options=merged_df["AccountType"].unique().tolist(),
-    default=merged_df["AccountType"].unique().tolist(),
-)
+with st.sidebar.expander("📊 Metric Settings", expanded=False):
+    max_amt = float(merged_df["Amount"].max())
+    selected_amount = st.slider(
+        "Amount Range ($)",
+        0.0, max_amt, (0.0, max_amt)
+    )
+    metric_mode = st.radio("Primary Metric", ["Sum", "Count"], index=0)
+    time_grain = st.selectbox("Time Grain", ["Year", "Quarter", "Month"]) 
+    top_n = st.slider("Top N Ranking", 3, 20, 10)
 
-# Amount range slider
-min_amount = float(merged_df["Amount"].min())
-max_amount = float(merged_df["Amount"].max())
-selected_amount = st.sidebar.slider(
-    "Transaction Amount (USD)",
-    min_value=0.0,
-    max_value=max_amount,
-    value=(min_amount, max_amount),
-)
-
-# Metric mode (Sum vs Count)
-metric_mode = st.sidebar.radio("Metric", ["Sum", "Count"], index=0)
-
-# Time grain (Year / Quarter / Month)
-time_grain = st.sidebar.selectbox("Time Grain", ["Year", "Quarter", "Month"]) 
-
-# Top N for ranking visualisations
-top_n = st.sidebar.slider("Top N", min_value=3, max_value=20, value=10)
+if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
+    st.cache_data.clear()
+    st.rerun()
 
 # ---------------------------------------------------------------------------
-# Apply filters to the merged dataframe
+# Filter Data
 # ---------------------------------------------------------------------------
 mask = (
     (merged_df["TransactionDate"] >= pd.Timestamp(start_date))
@@ -425,14 +440,14 @@ mask = (
 )
 filtered_df = merged_df[mask]
 
-# Calculate previous period for deltas
+# Delta period
 period_days = max((end_date - start_date).days + 1, 1)
-previous_end_date = pd.Timestamp(start_date) - pd.Timedelta(days=1)
-previous_start_date = previous_end_date - pd.Timedelta(days=period_days - 1)
+prev_end = pd.Timestamp(start_date) - pd.Timedelta(days=1)
+prev_start = prev_end - pd.Timedelta(days=period_days - 1)
 
-previous_mask = (
-    (merged_df["TransactionDate"] >= previous_start_date)
-    & (merged_df["TransactionDate"] <= previous_end_date)
+prev_mask = (
+    (merged_df["TransactionDate"] >= prev_start)
+    & (merged_df["TransactionDate"] <= prev_end)
     & merged_df["TransactionType"].isin(selected_types)
     & merged_df["BranchState"].isin(selected_states)
     & merged_df["AgeGroup"].isin(selected_age_groups)
@@ -440,206 +455,124 @@ previous_mask = (
     & (merged_df["Amount"] >= selected_amount[0])
     & (merged_df["Amount"] <= selected_amount[1])
 )
-previous_df = merged_df[previous_mask]
+previous_df = merged_df[prev_mask]
 
 # ---------------------------------------------------------------------------
-# Helper aggregation utilities (used in many charts)
+# Helper
 # ---------------------------------------------------------------------------
-
 def aggregate_by(df: pd.DataFrame, group_col: str, mode: str, metric_label: str = "Metric") -> pd.DataFrame:
     if mode == "Sum":
         agg = df.groupby(group_col)["Amount"].sum().reset_index(name=metric_label)
-    else:  # Count
+    else:
         agg = df.groupby(group_col).size().reset_index(name=metric_label)
     return agg
 
 # ---------------------------------------------------------------------------
-# Tabs – Overview, Loans, Recommendations, Raw Data
+# Tabs
 # ---------------------------------------------------------------------------
 tab_overview, tab_loans, tab_recommendations, tab_data = st.tabs([
-    "Overview",
-    "Loans",
-    "Recommendations",
-    "Data",
+    "📈 Overview",
+    "💰 Loans",
+    "💡 Recommendations",
+    "📋 Raw Data",
 ])
 
-# ---------------------------------------------------------------------------
-# Overview tab – existing visualisations (unchanged except width params)
-# ---------------------------------------------------------------------------
 with tab_overview:
     # KPI Metrics
     st.subheader("Key Performance Indicators")
-    kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+    k1, k2, k3, k4, k5 = st.columns(5)
     
-    total_tx = float(len(filtered_df))
-    total_volume = float(filtered_df["Amount"].sum())
-    avg_ticket = float(filtered_df["Amount"].mean()) if not filtered_df.empty else 0.0
-    active_accounts = float(filtered_df["AccountID"].nunique())
-    weekend_share = float(filtered_df["IsWeekend"].mean() * 100) if not filtered_df.empty else 0.0
+    curr_tx = float(len(filtered_df))
+    curr_vol = float(filtered_df["Amount"].sum())
+    curr_avg = float(filtered_df["Amount"].mean()) if not filtered_df.empty else 0.0
+    curr_acc = float(filtered_df["AccountID"].nunique())
+    curr_wknd = float(filtered_df["IsWeekend"].mean() * 100) if not filtered_df.empty else 0.0
 
-    prev_total_tx = float(len(previous_df))
-    prev_total_volume = float(previous_df["Amount"].sum())
-    prev_avg_ticket = float(previous_df["Amount"].mean()) if not previous_df.empty else 0.0
-    prev_active_accounts = float(previous_df["AccountID"].nunique())
-    prev_weekend_share = float(previous_df["IsWeekend"].mean() * 100) if not previous_df.empty else 0.0
+    prev_tx = float(len(previous_df))
+    prev_vol = float(previous_df["Amount"].sum())
+    prev_avg = float(previous_df["Amount"].mean()) if not previous_df.empty else 0.0
+    prev_acc = float(previous_df["AccountID"].nunique())
+    prev_wknd = float(previous_df["IsWeekend"].mean() * 100) if not previous_df.empty else 0.0
 
-    with kpi1:
-        st.metric("Transactions", f"{total_tx:,.0f}", delta_label(total_tx, prev_total_tx, "Count"))
-    with kpi2:
-        st.metric("Volume ($)", f"${total_volume:,.0f}", delta_label(total_volume, prev_total_volume, "Sum"))
-    with kpi3:
-        st.metric("Avg Ticket ($)", f"${avg_ticket:,.2f}", delta_label(avg_ticket, prev_avg_ticket, "Sum"))
-    with kpi4:
-        st.metric("Active Accounts", f"{active_accounts:,.0f}", delta_label(active_accounts, prev_active_accounts, "Count"))
-    with kpi5:
-        weekend_delta = f"{(weekend_share - prev_weekend_share):+.1f} pp vs previous"
-        st.metric("Weekend Share", f"{weekend_share:,.1f}%", weekend_delta)
+    k1.metric("Transactions", f"{curr_tx:,.0f}", delta_label(curr_tx, prev_tx, "Count"))
+    k2.metric("Volume ($)", f"${curr_vol:,.0f}", delta_label(curr_vol, prev_vol, "Sum"))
+    k3.metric("Avg Ticket", f"${curr_avg:,.2f}", delta_label(curr_avg, prev_avg, "Sum"))
+    k4.metric("Active Accounts", f"{curr_acc:,.0f}", delta_label(curr_acc, prev_acc, "Count"))
+    k5.metric("Weekend Share", f"{curr_wknd:,.1f}%", f"{(curr_wknd - prev_wknd):+.1f}%" if prev_wknd > 0 else None)
 
     st.markdown("---")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Top Branches by Volume")
-        top_branches = aggregate_by(filtered_df, "BranchName", metric_mode)
-        top_branches = top_branches.nlargest(top_n, "Metric")
-        fig1 = px.bar(
-            top_branches,
-            x="BranchName",
-            y="Metric",
-            color="BranchName",
-            height=420,
-        )
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader(f"Top {top_n} Branches")
+        top_br = aggregate_by(filtered_df, "BranchName", metric_mode).nlargest(top_n, "Metric")
+        fig1 = px.bar(top_br, x="BranchName", y="Metric", color="Metric", color_continuous_scale="Viridis", height=400)
         st.plotly_chart(fig1, use_container_width=True)
-    with col2:
-        st.subheader("Top Transaction Types")
-        top_types = aggregate_by(filtered_df, "TransactionType", metric_mode)
-        top_types = top_types.nlargest(top_n, "Metric")
-        fig2 = px.pie(top_types, names="TransactionType", values="Metric", height=420)
+    with c2:
+        st.subheader("Transaction Mix")
+        mix = aggregate_by(filtered_df, "TransactionType", metric_mode)
+        fig2 = px.pie(mix, names="TransactionType", values="Metric", hole=0.4, height=400)
         st.plotly_chart(fig2, use_container_width=True)
 
-    # Trend over time (dynamic based on selected grain)
+    st.subheader(f"Transaction Trend ({time_grain})")
     if time_grain == "Year":
-        trend = (
-            filtered_df.groupby("Year")["Amount"].sum().reset_index(name="Metric")
-        )
-        trend["PeriodLabel"] = trend["Year"].astype(str)
-        x_label = "Year"
+        trend = filtered_df.groupby("Year")["Amount"].sum().reset_index(name="Metric")
+        trend["Label"] = trend["Year"].astype(str)
     elif time_grain == "Quarter":
-        trend = (
-            filtered_df.groupby(["Year", "Quarter"])['Amount']
-            .sum()
-            .reset_index(name="Metric")
-        )
-        trend["PeriodLabel"] = trend["Year"].astype(str) + " Q" + trend["Quarter"].astype(str)
-        x_label = "Quarter"
-    else:  # Month
-        trend = (
-            filtered_df.groupby(["Year", "MonthName"])['Amount']
-            .sum()
-            .reset_index(name="Metric")
-        )
-        trend["PeriodLabel"] = trend["MonthName"] + " " + trend["Year"].astype(str)
-        x_label = "Month"
-    fig3 = px.line(trend, x="PeriodLabel", y="Metric", markers=True)
-    fig3.update_layout(xaxis_title=x_label, yaxis_title=metric_mode)
+        trend = filtered_df.groupby(["Year", "Quarter"])["Amount"].sum().reset_index(name="Metric")
+        trend["Label"] = trend["Year"].astype(str) + " Q" + trend["Quarter"].astype(str)
+    else:
+        trend = filtered_df.groupby(["Year", "MonthName"])["Amount"].sum().reset_index(name="Metric")
+        trend["Label"] = trend["MonthName"] + " " + trend["Year"].astype(str)
+    
+    fig3 = px.line(trend, x="Label", y="Metric", markers=True, template="plotly_white")
     st.plotly_chart(fig3, use_container_width=True)
 
-    # Age Group distribution
-    age_dist = aggregate_by(filtered_df, "AgeGroup", metric_mode)
-    fig4 = px.bar(age_dist, x="AgeGroup", y="Metric", color="AgeGroup")
-    st.plotly_chart(fig4, use_container_width=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.subheader("Age Group Distribution")
+        age_dist = aggregate_by(filtered_df, "AgeGroup", metric_mode)
+        fig4 = px.bar(age_dist, x="AgeGroup", y="Metric", color="AgeGroup", height=350)
+        st.plotly_chart(fig4, use_container_width=True)
+    with c4:
+        st.subheader("Weekend vs Weekday")
+        w_dist = aggregate_by(filtered_df, "IsWeekend", metric_mode)
+        w_dist["Label"] = w_dist["IsWeekend"].map({True: "Weekend", False: "Weekday"})
+        fig5 = px.pie(w_dist, names="Label", values="Metric", height=350)
+        st.plotly_chart(fig5, use_container_width=True)
 
-    # Weekend vs Weekday
-    weekend_dist = aggregate_by(filtered_df, "IsWeekend", metric_mode, metric_label="Metric")
-    weekend_dist["Label"] = weekend_dist["IsWeekend"].map({True: "Weekend", False: "Weekday"})
-    fig5 = px.pie(weekend_dist, names="Label", values="Metric")
-    st.plotly_chart(fig5, use_container_width=True)
-
-# ---------------------------------------------------------------------------
-# Loans tab – loan portfolio analysis
-# ---------------------------------------------------------------------------
 with tab_loans:
     if loans_df.empty:
-        st.info("No loan data available in the current dataset.")
+        st.info("No loan data available.")
     else:
-        st.subheader("Loan Amount Distribution by Type")
-        loan_type_amount = (
-            loans_df.groupby("LoanType")["PrincipalAmount"]
-            .sum()
-            .reset_index(name="TotalPrincipal")
-        )
-        fig_loans1 = px.bar(loan_type_amount, x="LoanType", y="TotalPrincipal", color="LoanType")
-        st.plotly_chart(fig_loans1, use_container_width=True)
+        st.subheader("Loan Portfolio Analysis")
+        l1, l2 = st.columns(2)
+        with l1:
+            l_type = loans_df.groupby("LoanType")["PrincipalAmount"].sum().reset_index()
+            fig_l1 = px.bar(l_type, x="LoanType", y="PrincipalAmount", color="LoanType", title="Principal by Type")
+            st.plotly_chart(fig_l1, use_container_width=True)
+        with l2:
+            l_stat = loans_df["Status"].value_counts().reset_index()
+            l_stat.columns = ["Status", "Count"]
+            fig_l2 = px.pie(l_stat, names="Status", values="Count", title="Status Distribution")
+            st.plotly_chart(fig_l2, use_container_width=True)
 
-        st.subheader("Loan Status Overview")
-        loan_status = loans_df["Status"].value_counts().reset_index(name="Count")
-        loan_status.columns = ["Status", "Count"]
-        fig_loans2 = px.pie(loan_status, names="Status", values="Count")
-        st.plotly_chart(fig_loans2, use_container_width=True)
-
-        st.subheader("Average Loan Age (Days) by Type")
-        avg_age = (
-            loans_df.groupby("LoanType")["LoanAgeDays"]
-            .mean()
-            .reset_index(name="AvgAgeDays")
-        )
-        fig_loans3 = px.bar(avg_age, x="LoanType", y="AvgAgeDays", color="LoanType")
-        st.plotly_chart(fig_loans3, use_container_width=True)
-
-# ---------------------------------------------------------------------------
-# Recommendations tab – placeholder (logic unchanged)
-# ---------------------------------------------------------------------------
 with tab_recommendations:
-    st.subheader("Prioritized Business Recommendations")
-    recommendations = generate_recommendations(filtered_df, previous_df, merged_df, metric_mode)
-    severity_icons = {"High": "🚨", "Medium": "⚠️", "Low": "✅"}
-    for rec in recommendations:
-        icon = severity_icons.get(rec["severity"], "ℹ️")
-        with st.expander(f"{icon} {rec['severity']} - {rec['title']}", expanded=(rec["severity"] == "High")):
-            st.markdown(
-                f"""
-                **Why:** {rec['why']}  
-                **Recommended action:** {rec['action']}
-                """
-            )
+    st.subheader("Strategic Insights")
+    recs = generate_recommendations(filtered_df, previous_df, merged_df, metric_mode)
+    icons = {"High": "🚨", "Medium": "⚠️", "Low": "✅"}
+    for r in recs:
+        with st.expander(f"{icons.get(r['severity'], 'ℹ️')} {r['severity']} - {r['title']}", expanded=(r["severity"] == "High")):
+            st.markdown(f"**Insight:** {r['why']}")
+            st.markdown(f"**Action:** {r['action']}")
 
-# ---------------------------------------------------------------------------
-# Data tab – raw filtered data & download
-# ---------------------------------------------------------------------------
 with tab_data:
-    st.subheader("Filtered Transactions")
-    view_cols = [
-        "TransactionDate",
-        "Year",
-        "Quarter",
-        "MonthName",
-        "BranchState",
-        "BranchName",
-        "TransactionType",
-        "AgeGroup",
-        "AccountType",
-        "AccountStatus",
-        "AccountID",
-        "Amount",
-        "IsWeekend",
-    ]
-    st.dataframe(
-        filtered_df[view_cols].sort_values(by="TransactionDate", ascending=False),
-        use_container_width=True,
-        height=420,
-    )
-    csv_data = filtered_df[view_cols].to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download Filtered Data (CSV)",
-        data=csv_data,
-        file_name="filtered_transactions.csv",
-        mime="text/csv",
-    )
+    st.subheader("Filtered Dataset")
+    cols = ["TransactionDate", "BranchName", "TransactionType", "Amount", "AccountType", "AccountStatus", "AgeGroup"]
+    st.dataframe(filtered_df[cols].sort_values("TransactionDate", ascending=False), use_container_width=True)
+    
+    csv = filtered_df.to_csv(index=False).encode("utf-8")
+    st.download_button("📥 Download Filtered CSV", data=csv, file_name="bank_data.csv", mime="text/csv")
 
-# ---------------------------------------------------------------------------
-# Footer
-# ---------------------------------------------------------------------------
 st.markdown("---")
-st.caption(
-    "Dashboard populated from CSV files (or SQL fallback) with interactive insights and business recommendations."
-)
+st.caption(f"Global Horizon Bank DW Dashboard | Connected via {data_source} | Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
