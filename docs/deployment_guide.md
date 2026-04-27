@@ -38,3 +38,6 @@ If you want the dashboard to connect to a live SQL Server instead of using CSV f
 
 ---
 **Note:** The current version of `app.py` includes a **Demo Mode** fallback, so even if your data files are missing or the database is down, the dashboard will still show synthetic data for demonstration purposes!
+
+## 🔗 Final Result
+Your dashboard is live at: [**https://global-horizon-bank-dwh-project.streamlit.app/**](https://global-horizon-bank-dwh-project.streamlit.app/)

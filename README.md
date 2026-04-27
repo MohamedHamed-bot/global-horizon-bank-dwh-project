@@ -13,6 +13,8 @@
   <p align="center">
     <b>Transforming transactional data into high-impact business decisions for the Egyptian market.</b>
   </p>
+
+  [**🚀 View Live Dashboard**](https://global-horizon-bank-dwh-project.streamlit.app/)
 </div>
 
 ---
