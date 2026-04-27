@@ -39,11 +39,142 @@ The **Global Horizon Bank Dashboard** is a state-of-the-art analytical tool desi
 ## 🗂️ Data Models
 ### OLTP System (Transactional)
 Designed for high-integrity daily operations.
-![OLTP ERD](diagrams/oltp_erd.drawio)
+
+```mermaid
+erDiagram
+    BRANCHES ||--o{ EMPLOYEES : "manages"
+    BRANCHES ||--o{ ACCOUNTS : "hosts"
+    BRANCHES ||--o{ LOANS : "issues"
+    CUSTOMERS ||--o{ ACCOUNTS : "owns"
+    CUSTOMERS ||--o{ LOANS : "takes"
+    ACCOUNTS ||--o{ TRANSACTIONS : "records"
+
+    BRANCHES {
+        int BranchID PK
+        string BranchName
+        string Address
+        string City
+        string State
+        string ZipCode
+    }
+
+    EMPLOYEES {
+        int EmployeeID PK
+        string FirstName
+        string LastName
+        string Role
+        int BranchID FK
+        date HireDate
+    }
+
+    CUSTOMERS {
+        int CustomerID PK
+        string FirstName
+        string LastName
+        string Email
+        string Phone
+        string Address
+        string City
+        string State
+        string ZipCode
+        date DateOfBirth
+        date JoinDate
+    }
+
+    ACCOUNTS {
+        int AccountID PK
+        int CustomerID FK
+        int BranchID FK
+        string AccountType
+        float Balance
+        date OpenDate
+        string Status
+    }
+
+    LOANS {
+        int LoanID PK
+        int CustomerID FK
+        int BranchID FK
+        string LoanType
+        float PrincipalAmount
+        float InterestRate
+        int TermMonths
+        date StartDate
+        string Status
+    }
+
+    TRANSACTIONS {
+        int TransactionID PK
+        int AccountID FK
+        string TransactionType
+        float Amount
+        datetime TransactionDate
+        string Description
+        int RelatedAccountID FK
+    }
+```
 
 ### OLAP Data Warehouse (Analytical)
 Optimized Star Schema for high-performance complex queries.
-![OLAP ERD](diagrams/olap_erd.drawio)
+
+```mermaid
+erDiagram
+    FACT_TRANSACTION }|--|| DIM_DATE : "at"
+    FACT_TRANSACTION }|--|| DIM_CUSTOMER : "by"
+    FACT_TRANSACTION }|--|| DIM_BRANCH : "from"
+    FACT_TRANSACTION }|--|| DIM_ACCOUNT : "on"
+
+    FACT_TRANSACTION {
+        int TransactionKey PK
+        int TransactionID
+        int DateKey FK
+        int CustomerKey FK
+        int AccountKey FK
+        int BranchKey FK
+        string TransactionType
+        float Amount
+    }
+
+    DIM_CUSTOMER {
+        int CustomerKey PK
+        int CustomerID
+        string FirstName
+        string LastName
+        string AgeGroup
+        string City
+        string State
+        date EffectiveDate
+        date ExpirationDate
+        boolean IsCurrent
+    }
+
+    DIM_DATE {
+        int DateKey PK
+        date FullDate
+        int Year
+        int Quarter
+        int Month
+        int DayOfMonth
+        string DayOfWeek
+    }
+
+    DIM_BRANCH {
+        int BranchKey PK
+        int BranchID
+        string BranchName
+        string City
+        string State
+        string ZipCode
+    }
+
+    DIM_ACCOUNT {
+        int AccountKey PK
+        int AccountID
+        string AccountType
+        date OpenDate
+        string Status
+    }
+```
 
 ---
 
