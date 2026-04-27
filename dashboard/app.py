@@ -38,23 +38,35 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for premium feel
+# Custom CSS for theme-aware premium feel
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    /* Metric Cards */
+    [data-testid="stMetric"] {
+        background-color: var(--secondary-background-color);
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        border: 1px solid rgba(128, 128, 128, 0.1);
     }
-    .stMetric {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
+    
+    /* Expander styling */
     div[data-testid="stExpander"] {
-        border: none !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-        background-color: white !important;
+        border: 1px solid rgba(128, 128, 128, 0.1) !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
+        background-color: var(--secondary-background-color) !important;
         margin-bottom: 10px !important;
+        border-radius: 12px !important;
+    }
+
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: var(--secondary-background-color);
+        border-radius: 8px 8px 0 0;
+        padding: 8px 16px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -525,7 +537,7 @@ with tab_overview:
         trend = filtered_df.groupby(["Year", "MonthName"])["Amount"].sum().reset_index(name="Metric")
         trend["Label"] = trend["MonthName"] + " " + trend["Year"].astype(str)
     
-    fig3 = px.line(trend, x="Label", y="Metric", markers=True, template="plotly_white")
+    fig3 = px.line(trend, x="Label", y="Metric", markers=True)
     st.plotly_chart(fig3, use_container_width=True)
 
     c3, c4 = st.columns(2)
