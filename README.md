@@ -39,11 +39,11 @@ The **Global Horizon Bank Dashboard** is a state-of-the-art analytical tool desi
 ## 🗂️ Data Models
 ### OLTP System (Transactional)
 Designed for high-integrity daily operations.
-![OLTP ERD](diagrams/oltp_erd_v2.png)
+![OLTP ERD](diagrams/oltp_erd.drawio)
 
 ### OLAP Data Warehouse (Analytical)
 Optimized Star Schema for high-performance complex queries.
-![OLAP ERD](diagrams/olap_erd_v2.png)
+![OLAP ERD](diagrams/olap_erd.drawio)
 
 ---
 
