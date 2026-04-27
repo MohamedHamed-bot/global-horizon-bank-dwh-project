@@ -214,5 +214,5 @@ docker-compose up --build
 ---
 
 <div align="center">
-  <i>Developed by Antigravity AI for the Data Engineering Diploma</i>
+  <i>Developed as part of Data Engineering Diploma</i>
 </div>
