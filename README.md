@@ -29,7 +29,11 @@ Comprehensive overview of the business requirements, data architecture, and anal
 
 ### 💻 Interactive Slides
 <div align="center">
-  <iframe src="https://docs.google.com/presentation/d/1tn4rjlLCX5IQuTImSWxK0meEJVZaSNa5U5CFzSaVm5o/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="450" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+  <a href="https://docs.google.com/presentation/d/1tn4rjlLCX5IQuTImSWxK0meEJVZaSNa5U5CFzSaVm5o/edit?usp=sharing">
+    <img src="presentation/thumbnail.png" alt="Project Presentation" width="800">
+  </a>
+  <br>
+  <i>Click the image above to view the interactive presentation</i>
 </div>
 
 ### 📥 Downloads & Links
