@@ -24,6 +24,20 @@
 
 ---
 
+## 📽️ Project Presentation
+Comprehensive overview of the business requirements, data architecture, and analytical solution.
+
+### 💻 Interactive Slides
+<div align="center">
+  <iframe src="https://docs.google.com/presentation/d/1tn4rjlLCX5IQuTImSWxK0meEJVZaSNa5U5CFzSaVm5o/embed?start=false&loop=false&delayms=3000" frameborder="0" width="100%" height="450" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+</div>
+
+### 📥 Downloads & Links
+- [**🌐 View on Google Slides**](https://docs.google.com/presentation/d/1tn4rjlLCX5IQuTImSWxK0meEJVZaSNa5U5CFzSaVm5o/edit?usp=sharing)
+- [**📄 Download Presentation (PDF)**](presentation/Global_Horizon_Bank_DWH_Presentation.pdf)
+
+---
+
 ## 📊 Analytics & Insights Dashboard
 The **Global Horizon Bank Dashboard** is a state-of-the-art analytical tool designed for executive decision-making.
 
